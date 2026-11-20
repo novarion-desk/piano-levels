@@ -633,5 +633,6 @@ $('#cfgb').onclick=()=>{
   document.body.append(ov)};
 render();
 </script>
+<script>if('serviceWorker' in navigator&&location.protocol.startsWith('http')){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
 </body>
 </html>
