@@ -91,11 +91,15 @@ table.t td,table.t th{border:1px solid var(--line);padding:6px 10px;text-align:l
 body.beamer main{max-width:none;padding:8px}
 body.beamer .hide-b{display:none!important}
 body.beamer .score svg .ch{font-size:20px}
+.song{display:flex;gap:16px;align-items:center;cursor:pointer}
+.song .sn{width:60px;height:60px;border-radius:16px;background:var(--ind);color:#fff;font-size:30px;font-weight:800;display:grid;place-items:center;flex:none}
+.song .st{margin-left:auto;font-weight:700;white-space:nowrap}
+.dots5{display:inline-flex;gap:5px}.dots5 i{width:12px;height:12px;border-radius:50%;background:#d9dcf0;display:block}.dots5 i.on{background:var(--ok)}
 @media (max-width:640px){.pad{min-height:110px}input[type=range]{width:150px}}
 </style>
 </head>
 <body>
-<header class="top"><button id="back" style="display:none">‹ Übersicht</button><img src="icon.svg" alt="" width="34" height="34" id="logo" style="border-radius:9px"><h1 id="ttl">Piano Levels</h1><button id="demoB" aria-label="Demo-Modus">Demo</button><button id="cfgb" aria-label="Einstellungen">⚙︎</button></header>
+<header class="top"><button id="back" style="display:none">‹ Übersicht</button><img src="icon.svg" alt="" width="34" height="34" id="logo" style="border-radius:9px"><h1 id="ttl">Piano Levels</h1><button id="miniB" aria-label="Mini-Piano">🎹 Mini-Piano</button><button id="demoB" aria-label="Demo-Modus">Demo</button><button id="cfgb" aria-label="Einstellungen">⚙︎</button></header>
 <main id="main"></main>
 
 <script>
@@ -121,8 +125,9 @@ const toast=m=>{const t=html(`<div class="toast">${m}</div>`);document.body.appe
 /* ================= Musik-Grundlagen ================= */
 const PCL=[0,0,1,1,2,3,3,4,4,5,5,6], PCN=['c','cis','d','dis','e','f','fis','g','gis','a','ais','h'];
 const isSharp=m=>[1,3,6,8,10].includes(m%12);
-const stepOf=m=>(Math.floor(m/12)-1)*7+PCL[m%12]-30;      // 0 = e1 (E4) = untere Linie
-const nameOf=m=>{const o=Math.floor(m/12)-4,n=PCN[m%12];return o===0?n:o>0?n+o:n.toUpperCase()+(o<-1?-o-1:'')};            // Schweizer Namen: c1 = 60
+let FLAT=false;
+const stepOf=m=>(Math.floor(m/12)-1)*7+(FLAT&&m%12===10?6:PCL[m%12])-30;      // 0 = e1 (E4) = untere Linie
+const nameOf=m=>{const o=Math.floor(m/12)-4,n=(FLAT&&m%12===10)?'b':PCN[m%12];return o===0?n:o>0?n+o:n.toUpperCase()+(o<-1?-o-1:'')};            // Schweizer Namen: c1 = 60
 const PAT={
   P0:[[0,.5],[.5,.5],[1,1],[2,.5],[2.5,.5],[3,.5],[3.5,.5]],
   P1:[[0,.5],[.5,.5],[1,1],[2,.5],[2.5,.5],[3,1]],
@@ -157,27 +162,16 @@ const HB={
  b6:{ch:[[0,'E']],v:[mk('P2',64),mk('P2',71),mk('P2',68)]},
  b7:{ch:[[0,'Am']],v:[mk('P3',64),mk('P3',72),mk('P3',69)]},
  b8:{ch:[[0,'E7']],re:1,volta:'1.',v:[mk('P2',64),mk('P2',71),mk('P2',68)]},
- b9:{ch:[[0,'Am'],[2,'E7']],volta:'2.',v:[mk('P3',[64,64,64]),mk('P3',[72,71,71]),mk('P3',[69,68,68])]},
+ b9:{ch:[[0,'Am'],[2,'E7']],volta:'2.',raw:1,v:[mk('P3',[64,64,64]),mk('P3',[72,71,71]),mk('P3',[69,68,68])]},
  b10:{ch:[[0,'Am']],volta:'',fin:1,v:[mk('P4',64),mk('P4',72),mk('P4',69)]}
 };
 const HSYS=[['b0','b1','b2','b3'],['b4','b5','b6','b7'],['b8','b9','b10']];
-const SEQ={
-  strophe:['b0','b1','b2','b3','b4','b5','b6','b7','b8'],
-  letzte:['b1','b2','b3','b4','b5','b6','b7','b9','b10'],
-  ganz:[].concat(['b0'],...[1,2,3,4].map(()=>['b1','b2','b3','b4','b5','b6','b7','b8']),[ 'b1','b2','b3','b4','b5','b6','b7','b9','b10'])
-};
 const VCOL=['#4F46E5','#059669','#d97706'];
-/* Schwierigkeitsvarianten für Level 4 */
-function variantEvents(id,v,variant){
-  const orig=HB[id].v[v];
-  if(variant==='C'||id==='b9')return orig;
-  const p=orig.find(e=>e.p!=null).p;
-  return mk(variant==='A'?'W':'Q4',p);
-}
-
 /* ================= Rhythmussprache ================= */
 function wordsOf(evs){const w=[];
   for(let i=0;i<evs.length;i++){const e=evs[i],rest=e.p==null;
+    if(e.cont)continue;
+    if(e.ws){e.ws.forEach(x=>w.push({b:x[0],e:x[1],t:x[2],n:x[3]}));continue}
     if(e.d>=2){w.push({b:e.b,e:e.b+1,t:rest?'paus':'stah'});for(let k=1;k<e.d;k++)w.push({b:e.b+k,e:e.b+k+1,t:String(k+1),n:1});continue}
     if(e.d===1){w.push({b:e.b,e:e.b+1,t:rest?'paus':'Schritt'});continue}
     if(e.d===.5&&!rest&&evs[i+1]&&evs[i+1].d===.5&&evs[i+1].p!=null&&e.b%1===0){w.push({b:e.b,e:e.b+1,t:'Laufe'});i++;continue}
@@ -187,7 +181,8 @@ function wordsOf(evs){const w=[];
 
 /* ================= Notenbild (SVG) ================= */
 function renderScore(o){
-  const PER=o.per||4,W=1000,L=84,RM=8,bw=(W-L-RM)/PER,pad=18,vh=104,top=46,nV=o.voices.length;
+  FLAT=!!o.flat;
+  const PER=o.per||4,W=1000,L=o.flat?104:84,RM=8,bw=(W-L-RM)/PER,pad=18,vh=104,top=46,nV=o.voices.length;
   const root=html('<div class="score"></div>');
   const loc={},svgs=[];
   const X=(bx,b)=>bx+pad+(b/4)*bw;   // gleichmässig: Taktende = nächster Taktanfang
@@ -198,7 +193,8 @@ function renderScore(o){
       const y0=top+v*vh;
       for(let i=0;i<5;i++)s+=`<line x1="${L-6}" x2="${L+ids.length*bw}" y1="${y0+i*8}" y2="${y0+i*8}" stroke="#333"/>`;
       s+=`<text x="8" y="${y0+27}" font-size="54" class="mus">\u{1D11E}</text>`;
-      s+=`<text x="62" y="${y0+16}" class="ts">4</text><text x="62" y="${y0+32}" class="ts">4</text>`;
+      if(o.flat)s+=`<text x="60" y="${y0+23}" font-size="34" class="mus">♭</text>`;
+      s+=`<text x="${o.flat?86:62}" y="${y0+16}" class="ts">4</text><text x="${o.flat?86:62}" y="${y0+32}" class="ts">4</text>`;
       if(o.voiceLabel||nV>1)s+=`<text x="4" y="${y0-21}" font-size="13" font-weight="700" fill="${o.voices[v].color}">${o.voices[v].label}</text>`;
       s+=`<line x1="${L-6}" x2="${L-6}" y1="${y0}" y2="${y0+32}" stroke="#333"/>`;
     }
@@ -214,7 +210,7 @@ function renderScore(o){
         if(bar.rs)s+=`<line x1="${bx+1}" x2="${bx+1}" y1="${y0}" y2="${yb}" stroke="#333" stroke-width="4"/><line x1="${bx+7}" x2="${bx+7}" y1="${y0}" y2="${yb}" stroke="#333"/><circle cx="${bx+14}" cy="${y0+12}" r="2.5"/><circle cx="${bx+14}" cy="${y0+20}" r="2.5"/>`;
         /* Töne */
         const evs=(o.events?o.events(id,v):bar.v[v]);
-        const yOf=st=>yb-st*4;const seen={};let grp=[];
+        const yOf=st=>yb-st*4;const seen={};let grp=[],tiePend=null;
         const head=(x,st,d,c)=>{const y=yOf(st);let t='';
           for(let k=-2;k>=st;k-=2)t+=`<line x1="${x-10}" x2="${x+10}" y1="${yOf(k)}" y2="${yOf(k)}" stroke="#333"/>`;
           for(let k=10;k<=st;k+=2)t+=`<line x1="${x-10}" x2="${x+10}" y1="${yOf(k)}" y2="${yOf(k)}" stroke="#333"/>`;
@@ -240,12 +236,15 @@ function renderScore(o){
           const st=stepOf(e.p),y=yOf(st);
           if(e.d>.5)flush();
           s+=head(x,st,e.d,col);
-          if(isSharp(e.p)&&!seen[st]){seen[st]=1;s+=`<text x="${x-19}" y="${y+7}" font-size="22" class="mus" fill="${col}">♯</text>`}
+          if(e.d%1===.5&&e.d>=1)s+=`<circle cx="${x+12}" cy="${y-(st%2===0?4:0)}" r="2.3" fill="${col}"/>`;
+          if(e.cont&&tiePend){const up=tiePend.st<4,y1=yOf(tiePend.st)+(up?7:-7);s+=`<path d="M${tiePend.x+7} ${y1} Q${(tiePend.x+x)/2} ${y1+(up?11:-11)} ${x-7} ${y1}" fill="none" stroke="${col}" stroke-width="2"/>`;tiePend=null}
+          if(e.tie)tiePend={x,st};
+          if(isSharp(e.p)&&!(FLAT&&e.p%12===10)&&!seen[st]){seen[st]=1;s+=`<text x="${x-19}" y="${y+7}" font-size="22" class="mus" fill="${col}">♯</text>`}
           if(e.d<=.5){const last=grp[grp.length-1],key=b=>e.d===.25?Math.floor(b):Math.floor(b/2);
             if(last&&(last.d!==e.d||key(last.b)!==key(e.b)||e.b!==last.b+e.d))flush();
             grp.push({x,st,b:e.b,d:e.d})}
           else if(e.d<4){const up=st<4,sx=up?x+5.6:x-5.6;s+=`<line x1="${sx}" x2="${sx}" y1="${y}" y2="${up?y-30:y+30}" stroke="${col}" stroke-width="2"/>`}
-          s+=`<text class="nm" x="${x}" y="${y0+60}">${nameOf(e.p)}</text>`;
+          if(!e.cont)s+=`<text class="nm" x="${x}" y="${y0+60}">${nameOf(e.p)}</text>`;
         });
         flush();
         if(o.words)wordsOf(evs).forEach(w=>{s+=`<text class="wd${w.n?' num':''}" data-bar="${id}" data-b0="${w.b}" data-b1="${w.e}" x="${X(bx,w.b)-6}" y="${y0+66}">${w.t}</text>`});
@@ -273,10 +272,10 @@ function renderScore(o){
     count(t){const c=$('.count',root);if(t==null)c.style.display='none';else{c.style.display='grid';c.textContent=t}}};
 }
 
-/* ================= Klaviatur (c1–e2) ================= */
-function keyboard(interactive){
-  const WH=[60,62,64,65,67,69,71,72,74,76],BL=[[61,0],[63,1],[66,3],[68,4],[70,5],[73,7],[75,8]];
-  let s='<svg class="kb" viewBox="0 0 600 170" xmlns="http://www.w3.org/2000/svg">';
+/* ================= Klaviatur ================= */
+function keyboard(interactive,lo=60,hi=76){
+  const WH=[],BL=[];for(let m=lo;m<=hi;m++){if(isSharp(m)){if(WH.includes(m-1))BL.push([m,WH.indexOf(m-1)])}else WH.push(m)}
+  let s=`<svg class="kb" viewBox="0 0 ${WH.length*60} 170" xmlns="http://www.w3.org/2000/svg">`;
   WH.forEach((m,i)=>{s+=`<rect data-m="${m}" x="${i*60+1}" y="2" width="58" height="150" rx="5" fill="#fff" stroke="#333" stroke-width="1.5"/><text x="${i*60+30}" y="166" fill="#444">${nameOf(m)}</text>`});
   BL.forEach(([m,i])=>{s+=`<rect data-m="${m}" x="${(i+1)*60-18}" y="2" width="36" height="92" rx="4" fill="#222"/>`});
   s+='</svg>';
@@ -301,8 +300,8 @@ const Eng={ctx:null,run:null,
     const spb=60/cfg.bpm,st=c.currentTime+.25,cb=cfg.countIn===false?0:4,t0=st+cb*spb,total=cfg.seq.length*4,ev=[],exp=[];
     for(let k=0;k<cb;k++){const t=st+k*spb;ev.push({t,f:()=>this.click(t,k===0)})}
     if(cfg.click)for(let k=0;k<total;k++){const t=t0+k*spb;ev.push({t,f:()=>this.click(t,k%4===0)})}
-    cfg.seq.forEach((id,s)=>{(cfg.audible||[]).forEach((a,v)=>{if(!a)return;cfg.events(v,id).forEach(e=>{if(e.p==null)return;const t=t0+(s*4+e.b)*spb;ev.push({t,f:()=>this.tone(t,e.p,e.d*spb,.8)})})});
-      if(cfg.tapVoice!=null)cfg.events(cfg.tapVoice,id).forEach(e=>{if(e.p!=null)exp.push({t:t0+(s*4+e.b)*spb,id,b:e.b,s})})});
+    cfg.seq.forEach((id,s)=>{(cfg.audible||[]).forEach((a,v)=>{if(!a)return;cfg.events(v,id).forEach(e=>{if(e.p==null||e.cont)return;const t=t0+(s*4+e.b)*spb;ev.push({t,f:()=>this.tone(t,e.p,(e.td||e.d)*spb,.8)})})});
+      if(cfg.tapVoice!=null)cfg.events(cfg.tapVoice,id).forEach(e=>{if(e.p!=null&&!e.cont)exp.push({t:t0+(s*4+e.b)*spb,id,b:e.b,s})})});
     ev.sort((a,b)=>a.t-b.t);
     const run={cfg,st,t0,spb,total,ev,ptr:0,taps:[],exp,done:false};this.run=run;
     run.timer=setInterval(()=>{while(run.ptr<ev.length&&ev[run.ptr].t<c.currentTime+.2)ev[run.ptr++].f()},25);
@@ -351,10 +350,11 @@ const R4=['x0','x1','x2','x3'];
 function exDef(id,title,desc,pats,extra){const {bars,ids}=rhythmBars(pats);
   const per=(extra&&extra.per)||4,systems=[];for(let i=0;i<ids.length;i+=per)systems.push(ids.slice(i,i+per));
   return Object.assign({id,title,desc,bars,ids,systems,bpm:66},extra||{})}
-const EX1=[
- exDef('p1','Puls: tippe auf jeden Schlag','Der Klick läuft mit. Tippe bei jedem Viertel.',['Q4','Q4'],{}),
- exDef('p2','Puls halten – ohne Klick','Nach dem Einzähler schweigt der Klick. Halte den Puls allein und tippe jeden Schlag.',['Q4','Q4','Q4'],{noClickTest:true})
+const ex1=s=>[
+ exDef('p1'+s,'Puls: tippe auf jeden Schlag','Der Klick läuft mit. Tippe bei jedem Viertel.',['Q4','Q4'],{}),
+ exDef('p2'+s,'Puls halten – ohne Klick','Nach dem Einzähler schweigt der Klick. Halte den Puls allein und tippe jeden Schlag.',['Q4','Q4','Q4'],{noClickTest:true})
 ];
+const EX1=ex1(''),EX1B=ex1('b');
 const EX2=[
  exDef('r1','Ganze Noten','Sprich «stah 2 3 4» und tippe nur auf die 1.',['W','W','W','W']),
  exDef('r2','Halbe Noten','Sprich «stah 2», tippe auf 1 und 3.',['H2','H2','H2','H2']),
@@ -367,8 +367,8 @@ const EX2=[
  exDef('r9','Der Rhythmus der Begleitung (Xylophon)','Genau der Rhythmus der Begleitung: Einleitung und Strophe.',['P0','P1','P2','P1','P2','P1','P2','P3','P2'],{bpm:70})
 ];
 
-function exerciseCard(def,levelN,onPass){
-  const card=html(`<div class="card ex ${S.best[def.id]>=CONFIG.pass?'pass':''}"><div class="hd"><div class="nr">${S.best[def.id]>=CONFIG.pass?'✓':def.id.replace(/\D/g,'')}</div><div style="flex:1"><h3 style="margin:0">${def.title}</h3><div class="small muted">${def.desc}</div></div><div class="stars small">${starsTxt(S.best[def.id])}</div></div><div class="body"></div></div>`);
+function exerciseCard(def,levelN,onPass,idx){
+  const card=html(`<div class="card ex ${S.best[def.id]>=CONFIG.pass?'pass':''}"><div class="hd"><div class="nr">${S.best[def.id]>=CONFIG.pass?'✓':(idx!=null?idx+1:def.id.replace(/\D/g,''))}</div><div style="flex:1"><h3 style="margin:0">${def.title}</h3><div class="small muted">${def.desc}</div></div><div class="stars small">${starsTxt(S.best[def.id])}</div></div><div class="body"></div></div>`);
   const body=$('.body',card);let built=false;
   $('.hd',card).onclick=()=>{card.classList.toggle('open');if(!built){built=true;buildEx(body,def,card,levelN,onPass)}};
   return card}
@@ -466,23 +466,93 @@ function casioPanel(){
   $('.cs',el).onclick=e=>{const pt=e.target.closest('.part');if(!pt)return;el.querySelectorAll('.part').forEach(x=>x.classList.remove('sel'));pt.classList.add('sel');const d=CASIO[pt.dataset.p];cx.innerHTML=`<b>${d[0]}</b><div>${d[1]}</div>`};
   return el}
 
-/* ================= Level 0 – Kennenlernen ================= */
-function level0(box){
-  box.append(html(`<div class="card"><h2>Dein Mini-Piano und du</h2><p>Bevor du spielst, lernst du dein Instrument kennen. Mache die Schritte der Reihe nach.</p>
-   <ol><li>Schliesse den Strom an und stecke den Kopfhörer ein.</li><li>Verschaffe dir einen Überblick über die Funktionen (siehe unten).</li><li>Probiere während 5 Minuten alles frei aus.</li><li>Lerne die Tasten und ihre Namen kennen.</li></ol></div>`));
+/* ================= Lieder ================= */
+const ELEM={
+ whole:['<span style="font-size:22px">𝅝</span> ganze Note','4 Schläge','<b>stah</b> 2 3 4','<b>paus</b> 2 3 4',['r1']],
+ half:['<span style="font-size:22px">𝅗𝅥</span> halbe Note','2 Schläge','<b>stah</b> 2','<b>paus</b> 2',['r2']],
+ quarter:['<span style="font-size:22px">♩</span> Viertelnote','1 Schlag','<b>Schritt</b>','<b>paus</b>',['r3']],
+ eighth:['<span style="font-size:22px">♪♪</span> zwei Achtel','1 Schlag','<b>Laufe</b>','',['r4']],
+ sixteenth:['<span style="font-size:22px">♬♬</span> vier Sechzehntel','1 Schlag','<b>umerenne</b>','',['r5']],
+ dotted:['<span style="font-size:22px">♩.</span> punktierte Viertel','1½ Schläge (3 Achtel)','<b>Trinidad</b>','',['q1']],
+ tie:['<span style="font-size:22px">⁀</span> Haltebogen','Die Dauern zählen zusammen. Nur die erste Note wird angespielt.','<b>stah</b> … (Zählzeiten weiterzählen)','',['q2']],
+ brk:['<span style="font-size:22px">♪</span> Achtel + Pausen','Eine Achtel, dann Pausen bis zum Taktende','<b>Hopp</b> – <b>paus</b>','',['q3']]
+};
+/* Lied 2: Bausteine */
+const T3=p=>[{b:0,d:1.5,p,ws:[[0,1.5,'Trinidad']]},{b:1.5,d:1.5,p,ws:[[1.5,3,'Trinidad']]},{b:3,d:1,p,ws:[[3,4,'to-go']]}];
+const BRK=p=>[{b:0,d:.5,p,ws:[[0,1,'Hopp']]},{b:.5,d:.5,p:null},{b:1,d:1,p:null},{b:2,d:2,p:null}];
+const TIE=(p,q)=>[{b:0,d:1.5,p,ws:[[0,1.5,'Trinidad']]},{b:1.5,d:.5,p:q,tie:1,td:2.5,ws:[[1.5,3,'stah'],[3,4,'4',1]]},{b:2,d:2,p:q,cont:1}];
+const HH=(p,q)=>[{b:0,d:2,p},{b:2,d:2,p:q}];
+const B2={};
+const add2=(id,ch,mkv,pv,x)=>{B2[id]=Object.assign({ch,v:pv.map((p,i)=>mkv(p,i))},x||{})};
+const SD=(id,ch,v,x)=>add2(id,ch,p=>T3(p),v,x);
+SD('a1',[[0,'Dm/A']],[62,65,57]);SD('a2',[[0,'Dm/A']],[62,65,57]);SD('a3',[[0,'Am']],[60,64,57]);SD('a4',[[0,'Am']],[60,64,57]);
+SD('a5',[[0,'Dm/A']],[62,65,57]);SD('a6',[[0,'Dm/A']],[62,65,57]);
+SD('a7',[[0,'Am']],[60,64,57],{volta:'1.'});
+add2('a8',[[0,'A']],p=>BRK(p),[61,64,57],{volta:'',re:1,raw:1});
+SD('a9',[[0,'Bb']],[62,65,58],{volta:'2.'});
+add2('a10',[[0,'A7']],p=>BRK(p),[61,64,57],{volta:'',raw:1});
+[1,3,5,7].forEach(n=>{add2('c'+n,[[0,'Dm'],[1.5,'Bb']],(p,i)=>TIE(p,p+(i===1?1:0)),[65,69,62].map((p,i)=>p),{});
+  B2['c'+n].v=[TIE(65,65),TIE(69,70),TIE(62,62)]});
+[2,4,6,8].forEach(n=>{add2('c'+n,[[0,'F'],[1.5,'C']],null,[],{});B2['c'+n].v=[TIE(65,64),TIE(69,67),TIE(60,60)]});
+add2('c9',[[0,'Bb']],p=>mk('W',p),[62,65,58]);
+add2('c10',[[0,'C']],p=>mk('W',p),[64,67,60]);
+add2('c11',[[0,'F'],[2,'A7']],null,[],{});B2.c11.v=[HH(65,64),HH(69,67),HH(60,61)];
+add2('c12',[[0,'Dm'],[2,'C']],null,[],{});B2.c12.v=[HH(65,64),HH(69,67),HH(62,60)];
+add2('c13',[[0,'Bb']],p=>mk('W',p),[62,65,58]);
+add2('c14',[[0,'A']],p=>BRK(p),[61,64,57],{fin:1});
+const mkRows=(pre,n)=>{const r=[];for(let i=1;i<=n;i+=4){const row=[];for(let k=i;k<i+4&&k<=n;k++)row.push(pre+k);r.push(row)}return r};
+const S2A=[['a1','a2','a3','a4'],['a5','a6','a7','a8'],['a9','a10']],S2C=mkRows('c',14);
+const A2=['a1','a2','a3','a4','a5','a6'],C2=[1,2,3,4,5,6,7,8,9,10,11,12,13,14].map(i=>'c'+i);
+const Q=(id,t,d,p,x)=>exDef(id,t,d,p,x);
+[1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(i=>{B2['c'+i].raw=1});
+const EXQ=[
+ Q('q1','Punktierte Viertel: Trinidad, Trinidad, to-go','Drei Töne pro Takt: zwei lange und ein kurzer. Sprich «Trinidad, Trinidad, to-go».',[T3(65),T3(65),T3(65),T3(65)]),
+ Q('q2','Haltebogen','Die lange Note klingt weiter, du tippst nur die erste Note der Verbindung: «Trinidad» tippen, «stah» tippen, dann halten.',[TIE(65,65),TIE(65,65),TIE(65,65),TIE(65,65)]),
+ Q('q3','Pausen im Break','Eine kurze Note, dann Stille. Zähle die Pausen im Kopf mit!',[BRK(65),BRK(65),T3(65),BRK(65)]),
+ Q('q4','Der Rhythmus der Strophe','Genau der Rhythmus der Strophe (Takt 1–8).',[T3(65),T3(65),T3(65),T3(65),T3(65),T3(65),T3(65),BRK(65)],{bpm:70}),
+ Q('q5','Der Rhythmus des Refrains','Lange Töne, Haltebögen und am Schluss der Break.',C2.map(id=>B2[id].v[0]),{bpm:66,per:4})
+];
+EXQ[4]=exDef('q5','Der Rhythmus des Refrains','Haltebögen, ganze und halbe Noten, am Schluss der Break.',C2.map(id=>B2[id].v[0]),{bpm:66,per:4});
+const SONGS=[
+ {id:'s1',n:1,title:'Lied 1',meta:'a-Moll · 4/4 · Achtel, Viertel und Pausen',diff:1,flat:false,
+  bars:HB,systems:HSYS,kbLo:60,kbHi:76,oneTone:64,ex1:EX1,ex2:EX2,elems:['whole','half','quarter','eighth','sixteenth'],
+  parts:[{label:'Lied',systems:HSYS,seq:'strophe',variants:true}],
+  seqs:{strophe:{label:'Strophe 1–4',ids:['b0','b1','b2','b3','b4','b5','b6','b7','b8']},
+        letzte:{label:'Letzte Strophe',ids:['b1','b2','b3','b4','b5','b6','b7','b9','b10']},
+        ganz:{label:'Ganzes Lied',ids:[].concat(['b0'],...[1,2,3,4].map(()=>['b1','b2','b3','b4','b5','b6','b7','b8']),['b1','b2','b3','b4','b5','b6','b7','b9','b10'])}},
+  l2sub:'Notenwerte lesen und tippen (Rhythmus des Arrangements)',
+  l2intro:'Noten zeigen, <b>wie lange</b> ein Ton dauert (in Schlägen). Mit der <b>Rhythmussprache</b> kannst du jeden Rhythmus sprechen, bevor du ihn klatschst oder spielst:',
+  t4:'Wie im Klassenarrangement: Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – aber jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, Dm, G, C, E …).',
+  t5:'Das Ziel: Jede Gruppe spielt ihre Stimme – zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm5:76},
+ {id:'s2',n:2,title:'Lied 2',meta:'d-Moll · 4/4 · punktierte Viertel, Haltebögen, Break',diff:2,flat:true,
+  bars:B2,systems:S2A.concat(S2C),kbLo:57,kbHi:72,oneTone:62,ex1:EX1B,ex2:[EX2[0],EX2[1],EX2[2]].concat(EXQ),elems:['whole','half','quarter','dotted','tie','brk'],
+  parts:[{label:'Strophe',systems:S2A,seq:'strophe',variants:true},{label:'Refrain',systems:S2C,seq:'refrain',variants:false}],
+  seqs:{strophe:{label:'Strophe',ids:A2.concat(['a7','a8'],A2,['a9','a10'])},
+        refrain:{label:'Refrain',ids:C2},
+        ganz:{label:'Strophe + Refrain',ids:A2.concat(['a7','a8'],A2,['a9','a10'],C2)}},
+  l2sub:'Neue Bausteine: punktierte Viertel, Haltebogen, Break',
+  l2intro:'Dieses Lied hat einen neuen Rhythmus: <b>drei Töne pro Takt</b>, zwei lange und ein kurzer (3 + 3 + 2 Achtel). Sprich <b>«Trinidad, Trinidad, to-go»</b>. Im Refrain kommen Haltebögen dazu, am Ende jedes Teils ein <b>Break</b> mit Pausen. Was du schon kannst, ist mit ✓ markiert.',
+  l3info:'<div class="card"><h3>Neu in diesem Lied: Vorzeichen</h3><p class="small" style="margin:0">Das <b>♭</b> am Anfang der Zeile steht für das ganze Lied: Jedes <b>h</b> wird zum <b>b</b> (schwarze Taste links vom h). Ein <b>♯</b> vor einer Note (hier <b>cis</b>, schwarze Taste rechts vom c) gilt nur bis zum Taktende.</p></div>',
+  t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus («Trinidad, Trinidad, to-go») – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Dm, Am, B, A7 …). Im Refrain wechselt der Akkord mitten im Takt.',
+  t5:'Strophe und Refrain zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Achtung beim <b>Break</b>: Alle hören gleichzeitig auf. Danach singen wir dazu.',bpm5:88}
+];
+let CUR=null,view='home';
+const doneK=n=>CUR.id+'_'+n,isDone=n=>!!S.done[doneK(n)];
+for(let n=1;n<=5;n++)if(S.done[n]&&!S.done['s1_'+n])S.done['s1_'+n]=true;
+function variantEvents(id,v,variant){
+  const bar=CUR.bars[id],orig=bar.v[v];
+  if(variant==='C'||bar.raw)return orig;
+  const p=orig.find(e=>e.p!=null).p;
+  return mk(variant==='A'?'W':'Q4',p)}
+
+/* ================= Mini-Piano kennenlernen ================= */
+function miniPiano(box){
+  FLAT=false;
+  box.append(html(`<div class="card"><h2>Dein Mini-Piano und du</h2><p>Hier lernst du dein Instrument kennen. Probiere alles frei aus, so lange du magst.</p>
+   <ol><li>Schliesse den Strom an und stecke den Kopfhörer ein.</li><li>Verschaffe dir einen Überblick über die Funktionen (siehe unten).</li><li>Probiere alles frei aus.</li><li>Lerne die Tasten und ihre Namen kennen.</li></ol></div>`));
   box.append(casioPanel());
-  const tm=html(`<div class="card"><h3>5 Minuten frei ausprobieren</h3><div class="row"><div style="font-size:44px;font-weight:800;min-width:130px" class="tt">5:00</div><button class="btn" data-a="go">Start</button><button class="btn sec" data-a="rs">Zurücksetzen</button></div></div>`);
-  let left=300,iv=null;const tt=$('.tt',tm),show=()=>tt.textContent=Math.floor(left/60)+':'+String(left%60).padStart(2,'0');
-  tm.onclick=e=>{const a=e.target.dataset.a;if(a==='go'){Eng.ensure();if(iv){clearInterval(iv);iv=null;e.target.textContent='Weiter'}else{e.target.textContent='Pause';iv=setInterval(()=>{left--;show();if(left<=0){clearInterval(iv);iv=null;[72,76,79].forEach((m,i)=>Eng.tone(Eng.ctx.currentTime+i*.18,m,.6,.9));toast('Zeit um! Weiter mit den Tasten.');$('[data-a=go]',tm).textContent='Start';left=300}},1000)}}
-    if(a==='rs'){clearInterval(iv);iv=null;left=300;show();$('[data-a=go]',tm).textContent='Start'}};
-  box.append(tm);
   const kc=html(`<div class="card"><h3>Die Tasten</h3><p class="small muted">Tippe auf eine Taste: Du hörst den Ton und siehst den Namen. Die Namen sind Schweizer Namen (c1 ist das «eingestrichene c»).</p><div class="kbw"></div><div class="small">Letzte Taste: <b class="ln">–</b></div></div>`);
-  const kb=keyboard({onKey:m=>$('.ln',kc).textContent=nameOf(m)});$('.kbw',kc).append(kb.el);box.append(kc);
-  const items=['Ich habe Strom und Kopfhörer angeschlossen.','Ich kann mit TONE eine Klangfarbe wählen (z. B. 32 Slap Bass).','Ich kann mit PATTERN einen Stil wählen, starten und das Tempo ändern.','Ich kann einen Song aus der Song Bank starten und die Melodie ausschalten.','Ich kenne die Tasten c1 bis c2.'];
-  const ck=html(`<div class="card"><h3>Das kann ich schon</h3><div class="cl"></div><div style="margin-top:10px"><button class="btn ok" data-a="fin" disabled>Level 0 abschliessen</button></div></div>`);
-  const draw=()=>{const cl=$('.cl',ck);cl.innerHTML=items.map((t,i)=>`<div class="chk ${S.chk[i]?'on':''}" data-i="${i}"><b>${S.chk[i]?'✓':''}</b>${t}</div>`).join('');$('[data-a=fin]',ck).disabled=!items.every((_,i)=>S.chk[i])};
-  ck.onclick=e=>{const c=e.target.closest('.chk');if(c){S.chk[c.dataset.i]=!S.chk[c.dataset.i];save();draw()}if(e.target.dataset.a==='fin')finishLevel(0)};
-  draw();box.append(ck);
+  const kb=keyboard({onKey:m=>{FLAT=false;$('.ln',kc).textContent=nameOf(m)+(isSharp(m)?(m%12===10?' / b':''):'')}},57,76);$('.kbw',kc).append(kb.el);box.append(kc);
 }
 
 /* ================= Level 1 & 2 ================= */
@@ -495,20 +565,17 @@ function level1(box){
       onFrame:f=>{if(f.counting)return;const k=Math.floor(f.bb);dots.forEach((d,i)=>{d.className=i===k?'on'+(k===0?' acc':''):''})},
       onEnd:()=>{on=false;dots.forEach(d=>d.className='');$('[data-a=go]',m).textContent='▶ Start'}})};
   box.append(m);
-  EX1.forEach(d=>box.append(exerciseCard(d,1,()=>checkLevel(1,EX1))));
+  const L=CUR.ex1;L.forEach((d,i)=>box.append(exerciseCard(d,1,()=>checkLevel(1,L),i)));
 }
 function level2(box){
-  box.append(html(`<div class="card"><h2>Rhythmus und Rhythmussprache</h2><p>Noten zeigen, <b>wie lange</b> ein Ton dauert (in Schlägen). Mit der <b>Rhythmussprache</b> kannst du jeden Rhythmus sprechen, bevor du ihn klatschst oder spielst:</p>
-   <table class="t"><tr><th>Note</th><th>Dauer</th><th>Rhythmussprache</th><th>Pause</th></tr>
-   <tr><td style="font-size:22px">𝅝 ganze Note</td><td>4 Schläge</td><td><b>stah</b> 2 3 4</td><td><b>paus</b> 2 3 4</td></tr>
-   <tr><td style="font-size:22px">𝅗𝅥 halbe Note</td><td>2 Schläge</td><td><b>stah</b> 2</td><td><b>paus</b> 2</td></tr>
-   <tr><td style="font-size:22px">♩ Viertelnote</td><td>1 Schlag</td><td><b>Schritt</b></td><td><b>paus</b></td></tr>
-   <tr><td style="font-size:22px">♪♪ zwei Achtel</td><td>1 Schlag</td><td><b>Laufe</b></td><td></td></tr>
-   <tr><td style="font-size:22px">♬♬ vier Sechzehntel</td><td>1 Schlag</td><td><b>umerenne</b></td><td></td></tr></table>
+  const best=ids=>ids.every(i=>S.best[i]>=CONFIG.pass);
+  const rows=CUR.elems.map(k=>{const e=ELEM[k],ok=best(e[4]);return `<tr><td>${e[0]}</td><td>${e[1]}</td><td>${e[2]}</td><td>${e[3]}</td><td style="white-space:nowrap">${ok?'<b style="color:var(--ok)">✓ kennst du</b>':'<b style="color:var(--warn)">neu</b>'}</td></tr>`}).join('');
+  box.append(html(`<div class="card"><h2>Bausteine und Rhythmussprache</h2><p>${CUR.l2intro}</p>
+   <table class="t"><tr><th>Baustein</th><th>Dauer</th><th>Rhythmussprache</th><th>Pause</th><th>Stand</th></tr>${rows}</table>
    <p class="small muted" style="margin-top:10px">So gehst du vor: ① Hören (▶ Vorhören) ② Sprechen mit Klick und Balken ③ Klatschen ④ Test. Mit dem Schalter «Rhythmussprache» blendest du die Wörter aus – wer sie auswendig kann, übt ohne.</p></div>`));
-  EX2.forEach(d=>box.append(exerciseCard(d,2,()=>checkLevel(2,EX2))));
+  const L=CUR.ex2;L.forEach((d,i)=>box.append(exerciseCard(d,2,()=>checkLevel(2,L),i)));
 }
-function checkLevel(n,list){if(list.every(d=>S.best[d.id]>=CONFIG.pass)&&!S.done[n])finishLevel(n,true)}
+function checkLevel(n,list){if(list.every(d=>S.best[d.id]>=CONFIG.pass)&&!isDone(n))finishLevel(n,true)}
 
 /* ================= Level 3–5: Spielen am Mini-Piano ================= */
 function approval(n,box,text){
@@ -516,26 +583,23 @@ function approval(n,box,text){
   const c=html(self
    ?`<div class="card hide-b"><h3>Abschluss</h3><p class="small muted">${isDemo()?'Demo-Version: Alle Level sind offen, ein Freigabewort ist nicht nötig.':'Wenn du es kannst, schliesse das Level selbst ab.'}</p><button class="btn ok" data-a="self">Level ${n} abschliessen</button></div>`
    :`<div class="card hide-b"><h3>Abschluss</h3><p class="small muted">${text}</p><div class="row"><input type="text" placeholder="Freigabewort" autocapitalize="off" autocomplete="off" style="width:200px"><button class="btn ok" data-a="ok">Freigabe prüfen</button></div></div>`);
-  if(S.done[n])c.querySelector('p').textContent='Dieses Level ist abgeschlossen. ✓';
+  if(isDone(n))c.querySelector('p').textContent='Dieses Level ist abgeschlossen. ✓';
   c.onclick=e=>{const a=e.target.dataset.a;if(a==='self'){finishLevel(n);return}if(a!=='ok')return;const v=$('input',c).value.trim().toLowerCase();
     if(v===CONFIG.codes[n]||v===CONFIG.teacher){if(v===CONFIG.teacher){S.teacher=true;save()}finishLevel(n)}else toast('Das Freigabewort stimmt nicht. Spiele deiner Lehrperson vor.')};
   box.append(c)}
 
 function practicePanel(box,o){
-  /* o: {voices:[...], audibleDefault:[...], seqKey, showNamesDefault, variant, levelCtl} */
-  const sc=renderScore({bars:HB,systems:HSYS,voices:o.voices,voiceLabel:o.voiceLabel,colorNotes:o.colorNotes,events:o.events});
+  const sc=renderScore({bars:CUR.bars,systems:o.systems||CUR.systems,flat:CUR.flat,voices:o.voices,voiceLabel:o.voiceLabel,colorNotes:o.colorNotes,events:o.events});
   if(!o.names)sc.el.classList.add('nonames');
-  const kbw=html('<div class="hide-k"></div>'),kb=keyboard();kbw.append(kb.el);
+  const kbw=html('<div class="hide-k"></div>'),kb=keyboard(null,CUR.kbLo,CUR.kbHi);kbw.append(kb.el);
   const btns=html(`<div class="row"><button class="btn" data-a="go">▶ Start</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
-  const state={seq:o.seq||'strophe'};
   const ctl=controls({bpm:o.bpm||76,max:124,toggles:o.toggles,onChange:(k,v)=>{
       if(k==='names')sc.el.classList.toggle('nonames',!v);
       if(k==='keys')kbw.style.display=v?'':'none';
       o.onToggle&&o.onToggle(k,v,ctl.st)}});
   kbw.style.display=ctl.st.keys===false?'none':'';
-  let current=null;
   const aud=()=>o.audible(ctl.st);
-  const run=()=>{Eng.ensure();Eng.play({bpm:ctl.st.bpm,seq:SEQ[o.seqKey(ctl.st)],events:(v,id)=>o.events(id,v),audible:aud(),click:ctl.st.click,
+  const run=()=>{Eng.ensure();Eng.play({bpm:ctl.st.bpm,seq:CUR.seqs[o.seqKey(ctl.st)].ids,events:(v,id)=>o.events(id,v),audible:aud(),click:ctl.st.click,
     onFrame:f=>{if(f.counting){sc.count(f.countBeat);sc.hideCursor();return}sc.count(null);
       if(ctl.st.bar)sc.cursor(f.id,f.bb);else sc.hideCursor();
       const map={};o.voices.forEach((vo,v)=>{if(o.keyVoices&&!o.keyVoices(ctl.st)[v])return;const e=o.events(f.id,v).find(e=>e.p!=null&&e.b<=f.bb+.001&&f.bb<e.b+e.d-.001)||o.events(f.id,v).filter(e=>e.p!=null&&e.b<=f.bb).pop();if(e)map[e.p]=vo.color});
@@ -547,42 +611,46 @@ function practicePanel(box,o){
   return{ctl,sc}}
 
 function level3(box){
-  box.append(html(`<div class="card"><h2>Rhythmus auf einem Ton</h2><p>Jetzt wird es musikalisch: Du spielst den Rhythmus aus Level 2 am <b>Mini-Piano</b> – zuerst nur auf <b>einem Ton: e1</b>. Das Tastaturbild zeigt dir die Taste.</p>
-   <ol><li>Klatsche den Rhythmus mit (Balken beobachten).</li><li>Spiele ihn auf e1.</li><li>Steigere das Tempo.</li></ol>
+  const P=CUR.parts[0],tone=CUR.oneTone;FLAT=CUR.flat;const tn=nameOf(tone);
+  if(CUR.l3info)box.append(html(CUR.l3info));
+  box.append(html(`<div class="card"><h2>Rhythmus auf einem Ton</h2><p>Jetzt wird es musikalisch: Du spielst den Rhythmus aus Level 2 am <b>Mini-Piano</b> – zuerst nur auf <b>einem Ton: ${tn}</b>. Das Tastaturbild zeigt dir die Taste.</p>
+   <ol><li>Klatsche den Rhythmus mit (Balken beobachten).</li><li>Spiele ihn auf ${tn}.</li><li>Steigere das Tempo.</li></ol>
    <p class="small muted">Ohne Lärm: Klick ausschalten, nur dem Balken folgen. Mit eigenem Kopfhörer am iPad hörst du den Klick und die Begleitung.</p></div>`));
-  const e=(id,v)=>mapP(HB[id].v[0],()=>64);
-  practicePanel(box,{voices:[{label:'Alle',color:'#4F46E5'}],voiceLabel:true,colorNotes:true,events:(id,v)=>e(id,v),names:true,bpm:66,
+  const e=(id,v)=>mapP(CUR.bars[id].v[0],()=>tone);
+  practicePanel(box,{systems:P.systems,voices:[{label:'Alle',color:'#4F46E5'}],voiceLabel:true,colorNotes:true,events:(id,v)=>e(id,v),names:true,bpm:66,
     toggles:[['click','Klick',true],['bar','Balken',true],['keys','Taste zeigen',true],['names','Notennamen',true],['hear','Ton hören',false]],
-    audible:st=>[st.hear],seqKey:()=>'strophe',keyVoices:()=>[true]});
-  approval(3,box,'Spiele deiner Lehrperson den Rhythmus auf e1 vor. Du bekommst ein Freigabewort für das nächste Level.');
+    audible:st=>[st.hear],seqKey:()=>P.seq,keyVoices:()=>[true]});
+  approval(3,box,'Spiele deiner Lehrperson den Rhythmus auf '+tn+' vor. Du bekommst ein Freigabewort für das nächste Level.');
 }
 function level4(box){
-  let voice=0,variant='C';const st4={};
-  box.append(html(`<div class="card"><h2>Gleicher Rhythmus, andere Töne</h2><p>Wie im Klassenarrangement: Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – aber jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, Dm, G, C, E …).</p></div>`));
+  let voice=0,variant='C',pi=0;const parts=CUR.parts;
+  box.append(html(`<div class="card"><h2>Gleicher Rhythmus, andere Töne</h2><p>${CUR.t4}</p></div>`));
   const sel=html(`<div class="card hide-b"><div class="row"><div><div class="small muted">Deine Gruppe</div><div class="seg" data-g="v"><button data-v="0" class="on">Stimme 1</button><button data-v="1">Stimme 2</button><button data-v="2">Stimme 3</button></div></div>
-    <div><div class="small muted">Schwierigkeit</div><div class="seg" data-g="d"><button data-d="A">A · ein Schlag</button><button data-d="B">B · Viertel</button><button data-d="C" class="on">C · Melodie</button></div></div></div>
-    <p class="small muted" style="margin:8px 0 0">A: pro Takt eine ganze Note · B: vier Viertel pro Takt · C: der echte Rhythmus aus dem Arrangement.</p></div>`);
+    ${parts.length>1?`<div><div class="small muted">Teil</div><div class="seg" data-g="p">${parts.map((p,i)=>`<button data-p="${i}" class="${i?'':'on'}">${p.label}</button>`).join('')}</div></div>`:''}
+    <div class="dsel"><div class="small muted">Schwierigkeit</div><div class="seg" data-g="d"><button data-d="A">A · ein Schlag</button><button data-d="B">B · Viertel</button><button data-d="C" class="on">C · Melodie</button></div></div></div>
+    <p class="small muted dtx" style="margin:8px 0 0">A: pro Takt eine ganze Note · B: vier Viertel pro Takt · C: der echte Rhythmus aus dem Lied.</p></div>`);
   box.append(sel);
   const host=html('<div></div>');box.append(host);
-  const build=()=>{host.innerHTML='';Eng.stop();
-    practicePanel(host,{voices:[{label:'Stimme '+(voice+1),color:VCOL[voice]}],voiceLabel:true,colorNotes:true,events:(id,v)=>variantEvents(id,voice,variant),names:true,bpm:66,
+  const build=()=>{host.innerHTML='';Eng.stop();const P=parts[pi],vv=P.variants!==false;
+    sel.querySelector('.dsel').style.display=vv?'':'none';sel.querySelector('.dtx').style.display=vv?'':'none';FLAT=CUR.flat;
+    practicePanel(host,{systems:P.systems,voices:[{label:'Stimme '+(voice+1),color:VCOL[voice]}],voiceLabel:true,colorNotes:true,events:(id,v)=>variantEvents(id,voice,vv?variant:'C'),names:true,bpm:66,
       toggles:[['click','Klick',true],['bar','Balken',true],['keys','Taste zeigen',true],['names','Notennamen',true],['hear','Ton hören',false]],
-      audible:st=>[st.hear],seqKey:()=>'strophe',keyVoices:()=>[true]})};
+      audible:st=>[st.hear],seqKey:()=>P.seq,keyVoices:()=>[true]})};
   sel.onclick=e=>{const b=e.target.closest('button');if(!b)return;const g=b.parentElement;g.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-    if(b.dataset.v!=null)voice=+b.dataset.v;if(b.dataset.d)variant=b.dataset.d;build()};
+    if(b.dataset.v!=null)voice=+b.dataset.v;if(b.dataset.d)variant=b.dataset.d;if(b.dataset.p!=null)pi=+b.dataset.p;build()};
   build();
   approval(4,box,'Spiele deiner Lehrperson deine Stimme vor. Danach bekommst du das Freigabewort.');
 }
 function level5(box){
-  box.append(html(`<div class="card"><h2>Alle zusammen</h2><p>Das Ziel: Jede Gruppe spielt ihre Stimme – zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.</p><p class="small muted">Schalte deine eigene Stimme stumm und spiele sie live. Die anderen Stimmen hörst du vom iPad. Für die Klasse: «Beamer-Ansicht».</p></div>`));
+  box.append(html(`<div class="card"><h2>Alle zusammen</h2><p>${CUR.t5}</p><p class="small muted">Schalte deine eigene Stimme stumm und spiele sie live. Die anderen Stimmen hörst du vom iPad. Für die Klasse: «Beamer-Ansicht».</p></div>`));
   const host=html('<div></div>');box.append(host);
-  const seqSel=html(`<div class="row hide-b" style="margin:4px 0"><div class="seg"><button data-s="strophe" class="on">Strophe 1–4</button><button data-s="letzte">Letzte Strophe</button><button data-s="ganz">Ganzes Lied</button></div><span class="pill" data-b="1">📽 Beamer-Ansicht</span></div>`);
-  let seqKey='strophe';
+  const keys=Object.keys(CUR.seqs);let seqKey=keys[0];
+  const seqSel=html(`<div class="row hide-b" style="margin:4px 0"><div class="seg">${keys.map((k,i)=>`<button data-s="${k}" class="${i?'':'on'}">${CUR.seqs[k].label}</button>`).join('')}</div><span class="pill" data-b="1">📽 Beamer-Ansicht</span></div>`);
   const voices=[0,1,2].map(i=>({label:'Stimme '+(i+1),color:VCOL[i]}));
   seqSel.onclick=e=>{const b=e.target.closest('button');if(b){seqSel.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');seqKey=b.dataset.s}
     const p=e.target.closest('[data-b]');if(p){document.body.classList.toggle('beamer');p.classList.toggle('on');if(document.body.classList.contains('beamer')){const bb=html('<span class="pill on" id="bx" style="position:fixed;right:10px;bottom:10px;z-index:30">Beamer beenden</span>');bb.onclick=()=>{document.body.classList.remove('beamer');bb.remove();p.classList.remove('on')};document.body.append(bb)}}};
-  box.insertBefore(seqSel,host);
-  practicePanel(host,{voices,colorNotes:true,events:(id,v)=>HB[id].v[v],names:false,bpm:76,
+  box.insertBefore(seqSel,host);FLAT=CUR.flat;
+  practicePanel(host,{voices,colorNotes:true,events:(id,v)=>CUR.bars[id].v[v],names:false,bpm:CUR.bpm5,
     toggles:[['click','Klick',true],['bar','Balken',true],['keys','Tasten zeigen',true],['v0','Stimme 1 hören',true],['v1','Stimme 2 hören',true],['v2','Stimme 3 hören',true]],
     audible:st=>[st.v0,st.v1,st.v2],seqKey:()=>seqKey,keyVoices:()=>[true,true,true]});
   approval(5,box,'Wenn die Klasse die Akkorde zusammen spielt, gibt es das letzte Freigabewort. Danach singen wir dazu.');
@@ -590,31 +658,45 @@ function level5(box){
 
 /* ================= Übersicht & Navigation ================= */
 const LEVELS=[
- {n:0,t:'Kennenlernen',ic:'🎹',sub:'Mini-Piano, Tasten, 5 Minuten ausprobieren',f:level0},
- {n:1,t:'Puls',ic:'💓',sub:'Gleichmässig tippen mit dem Metronom',f:level1},
- {n:2,t:'Rhythmus',ic:'👏',sub:'Notenwerte lesen und tippen (Rhythmus des Arrangements)',f:level2},
- {n:3,t:'Ein Ton',ic:'🎯',sub:'Den Rhythmus auf einem Ton spielen',f:level3},
- {n:4,t:'Akkordtöne',ic:'🎼',sub:'Drei Gruppen, gleicher Rhythmus, andere Töne',f:level4},
- {n:5,t:'Zusammen',ic:'🎶',sub:'Alle Stimmen = Akkorde – dann singen wir',f:level5}
+ {n:1,t:'Puls',ic:'💓',sub:()=>'Gleichmässig tippen mit dem Metronom',f:level1},
+ {n:2,t:'Bausteine & Rhythmus',ic:'👏',sub:()=>CUR.l2sub,f:level2},
+ {n:3,t:'Ein Ton',ic:'🎯',sub:()=>'Den Rhythmus auf einem Ton spielen',f:level3},
+ {n:4,t:'Akkordtöne',ic:'🎼',sub:()=>'Drei Gruppen, gleicher Rhythmus, andere Töne',f:level4},
+ {n:5,t:'Zusammen',ic:'🎶',sub:()=>'Alle Stimmen = Akkorde – dann singen wir',f:level5}
 ];
 const isDemo=()=>DEMO||S.demo;
-const unlocked=n=>n===0||isDemo()||S.teacher||S.done[n-1];
-function finishLevel(n,auto){S.done[n]=true;save();toast('Level '+n+' geschafft! ✓'+(n<5?' Das nächste Level ist offen.':' Jetzt wird gesungen!'));if(!auto)setTimeout(()=>go('home'),900)}
-let view='home';
-function go(v){Eng.stop();document.body.classList.remove('beamer');$('#bx')?.remove();view=v;render();window.scrollTo(0,0)}
+const unlocked=n=>n===1||isDemo()||S.teacher||isDone(n-1);
+const progress=s=>[1,2,3,4,5].filter(n=>S.done[s.id+'_'+n]).length;
+function finishLevel(n,auto){S.done[doneK(n)]=true;save();toast('Level '+n+' geschafft! ✓'+(n<5?' Das nächste Level ist offen.':' Jetzt wird gesungen!'));if(!auto)setTimeout(()=>go('song'),900)}
+function go(v,sid){Eng.stop();document.body.classList.remove('beamer');$('#bx')?.remove();if(sid)CUR=SONGS.find(s=>s.id===sid);view=v;render();window.scrollTo(0,0)}
 function render(){
+  FLAT=false;
   $('#demoB').classList.toggle('on',isDemo());$('#demoB').textContent=isDemo()?'Demo an':'Demo';
-  const m=$('#main');m.innerHTML='';$('#back').style.display=view==='home'?'none':'';
+  const m=$('#main');m.innerHTML='';const bk=$('#back');bk.style.display=view==='home'?'none':'';
+  bk.textContent=typeof view==='number'?'‹ '+CUR.title:'‹ Übersicht';
   if(view==='home'){$('#ttl').textContent='Piano Levels';
-    const nd=LEVELS.filter(l=>S.done[l.n]).length;
     if(isDemo())m.append(html('<div class="card" style="background:#fef3c7;border-color:#fde68a"><b>Demo-Version:</b> Alle Level sind offen und ein Freigabewort ist nicht nötig.</div>'));
-    m.append(html(`<div class="card"><div class="row sp"><div><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Vom Puls bis zur gemeinsamen Akkordbegleitung (mit einem Beispiellied).</p></div><span class="tag">${nd} von ${LEVELS.length} Levels</span></div></div>`));
-    LEVELS.forEach(l=>{const un=unlocked(l.n),dn=S.done[l.n];
-      const c=html(`<div class="card lv ${dn?'done':''} ${un?'':'locked'}"><div class="ic">${dn?'✓':l.ic}</div><div><h3>Level ${l.n} · ${l.t}</h3><div class="small muted">${l.sub}</div></div><div class="st">${dn?'<span style="color:var(--ok)">Geschafft</span>':un?'<span style="color:var(--ind)">Öffnen ›</span>':'🔒'}</div></div>`);
+    m.append(html(`<div class="card"><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Wähle ein Lied. Jedes Lied beginnt mit dem Puls und dem Rhythmus und führt bis zur gemeinsamen Akkordbegleitung.</p></div>`));
+    SONGS.forEach(s=>{const p=progress(s);
+      const c=html(`<div class="card song"><div class="sn">${s.n}</div><div style="flex:1;min-width:0"><h3>${s.title}</h3><div class="small muted">${s.meta}</div>
+        <div class="row" style="margin-top:8px;gap:10px"><span class="dots5">${[1,2,3,4,5].map(n=>`<i class="${S.done[s.id+'_'+n]?'on':''}"></i>`).join('')}</span><span class="small muted">${p} von 5 Levels</span><span class="tag">Schwierigkeit ${'●'.repeat(s.diff)+'○'.repeat(3-s.diff)}</span></div></div>
+        <div class="st"><span style="color:var(--ind)">${p===5?'Geschafft ✓':p?'Weiter ›':'Starten ›'}</span></div></div>`);
+      c.onclick=()=>go('song',s.id);m.append(c)});
+    const mp=html(`<div class="card lv"><div class="ic">🎹</div><div><h3>Mini-Piano kennenlernen</h3><div class="small muted">Bedienfeld, Tasten und Tastennamen</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
+    mp.onclick=()=>go('mini');m.append(mp)}
+  else if(view==='mini'){$('#ttl').textContent='Mini-Piano';miniPiano(m)}
+  else if(view==='song'){$('#ttl').textContent=CUR.title;
+    const p=progress(CUR);
+    m.append(html(`<div class="card"><div class="row sp"><div><h2>${CUR.title}</h2><p class="muted" style="margin:0">${CUR.meta}</p></div><span class="tag">${p} von 5 Levels</span></div>
+      <p class="small muted" style="margin:10px 0 0">Der Weg: Puls → Bausteine &amp; Rhythmus → Ein Ton → Akkordtöne → Zusammen.</p></div>`));
+    LEVELS.forEach(l=>{const un=unlocked(l.n),dn=isDone(l.n);
+      const c=html(`<div class="card lv ${dn?'done':''} ${un?'':'locked'}"><div class="ic">${dn?'✓':l.ic}</div><div><h3>Level ${l.n} · ${l.t}</h3><div class="small muted">${l.sub()}</div></div><div class="st">${dn?'<span style="color:var(--ok)">Geschafft</span>':un?'<span style="color:var(--ind)">Öffnen ›</span>':'🔒'}</div></div>`);
       c.onclick=()=>{if(un)go(l.n);else toast('Schliesse zuerst Level '+(l.n-1)+' ab.')};m.append(c)})}
-  else{const l=LEVELS[view];$('#ttl').textContent='Level '+l.n+' · '+l.t;l.f(m)}
+  else{const l=LEVELS[view-1];$('#ttl').textContent=CUR.title+' · Level '+l.n;l.f(m)}
 }
-$('#back').onclick=()=>go('home');
+$('#back').onclick=()=>go(typeof view==='number'?'song':'home');
+$('#miniB').onclick=()=>go('mini');
+
 $('#demoB').onclick=()=>{if(DEMO){toast('Demo läuft über die Adresse (?demo).');return}S.demo=!S.demo;save();toast(S.demo?'Demo: alle Level sind offen.':'Demo aus: Level sind wieder gesperrt.');go('home')};
 /* Einstellungen */
 $('#cfgb').onclick=()=>{
