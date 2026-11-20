@@ -56,6 +56,7 @@ main{max-width:1040px;margin:0 auto;padding:16px 16px 60px}
 .score svg .wd{font:700 15px -apple-system,"Segoe UI",Roboto,sans-serif;fill:#4b5070}
 .score svg .wd.num{fill:#9ca3c0;font-weight:600}
 .score svg .wd.on{fill:#4F46E5;font-size:18px}
+.score svg .wd.sm{font-size:12px}.score svg .wd.sm.on{font-size:14px}
 .score.nowords svg .wd{display:none}
 .count{position:absolute;inset:0;display:none;place-items:center;background:rgba(255,255,255,.82);font-size:84px;font-weight:800;color:var(--ind);z-index:3;pointer-events:none}
 .pad{display:grid;place-items:center;min-height:130px;border-radius:18px;background:linear-gradient(180deg,#6366f1,#4338ca);color:#fff;font-size:24px;font-weight:800;letter-spacing:.04em;user-select:none;-webkit-user-select:none;touch-action:none;cursor:pointer;margin:10px 0}
@@ -94,6 +95,12 @@ body.beamer .score svg .ch{font-size:20px}
 .song{display:flex;gap:16px;align-items:center;cursor:pointer}
 .song .sn{width:60px;height:60px;border-radius:16px;background:var(--ind);color:#fff;font-size:30px;font-weight:800;display:grid;place-items:center;flex:none}
 .song .st{margin-left:auto;font-weight:700;white-space:nowrap}
+.stick{position:sticky;top:60px;z-index:15;background:var(--bg);padding:8px 0;margin:0}
+.card .stick{background:#fff}
+.lesson>.lb{display:none;margin-top:12px}.lesson.open>.lb{display:block}
+.lesson>.lh{display:flex;align-items:center;gap:12px;cursor:pointer}
+.lesson .nr{width:38px;height:38px;border-radius:50%;background:var(--ind);color:#fff;font-weight:800;display:grid;place-items:center;flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
 .dots5{display:inline-flex;gap:5px}.dots5 i{width:12px;height:12px;border-radius:50%;background:#d9dcf0;display:block}.dots5 i.on{background:var(--ok)}
 @media (max-width:640px){.pad{min-height:110px}input[type=range]{width:150px}}
 </style>
@@ -106,7 +113,7 @@ body.beamer .score svg .ch{font-size:20px}
 'use strict';
 /* ================= Konfiguration (hier anpassen) ================= */
 const CONFIG={
-  codes:{3:'ton',4:'akkord',5:'zusammen'},   // Freigabewörter für Level mit Mini-Piano-Spiel
+  codes:{2:'ton',3:'akkord',4:'zusammen'},   // Freigabewörter für Level 2–4 (Mini-Piano-Spiel)
   teacher:'lehrer',                           // Lehrercode: schaltet alles frei
   pass:70,                                     // Bestehensgrenze in % bei Tipp-Aufgaben
   approval:'teacher'                           // 'teacher' = Freigabewort der Lehrperson, 'self' = Schüler schalten selbst frei
@@ -147,6 +154,19 @@ const PAT={
   M8:[[0,2],[2,.5],[2.5,.5],[3,1]],
   S16:Array.from({length:16},(_,i)=>[i*.25,.25])
 };
+/* Kurzschreibweise für Takte: S Schritt (Viertel), p Viertelpause, H halbe, h halbe Pause, D punktierte halbe (sta 2 3), W ganze,
+   L Laufe (zwei Achtel), U umerenne (vier Sechzehntel), o einzelne Achtel (Hopp), u Achtelpause (und) */
+const TK={S:[[1]],p:[[1,1]],H:[[2]],h:[[2,1]],D:[[3]],d:[[3,1]],W:[[4]],w:[[4,1]],L:[[.5],[.5]],U:[[.25],[.25],[.25],[.25]],o:[[.5]],u:[[.5,1]]};
+const DUR={S:1,p:1,H:2,h:2,D:3,d:3,W:4,w:4,L:1,U:1,o:.5,u:.5};
+function tk(str,p){const ev=[];let b=0;for(const c of str.replace(/\s/g,'')){TK[c].forEach(x=>{ev.push({b,d:x[0],p:x[1]?null:p});b+=x[0]})}return ev}
+/* Zufallstakt aus einem Vorrat von Bausteinen; L/U nur auf ganzen Schlägen */
+function randBar(pool,bpb){
+  for(let t=0;t<120;t++){let b=0,s='';
+    while(b<bpb-1e-6){const rem=bpb-b;
+      const ok=[...pool].filter(c=>DUR[c]<=rem+1e-6&&!((c==='L'||c==='U')&&b%1!==0));
+      if(!ok.length)break;const c=ok[Math.floor(Math.random()*ok.length)];s+=c;b+=DUR[c]}
+    if(Math.abs(b-bpb)<1e-6&&[...s].some(c=>!'pu'.includes(c))&&(s.match(/p/g)||[]).length<=1)return s}
+  return 'S'.repeat(bpb)}
 /* Ereignis = {b: Zählzeit, d: Dauer, p: MIDI-Ton oder null (Pause)} */
 function mk(key,pitch){let i=0;return PAT[key].map(e=>({b:e[0],d:e[1],p:e[2]?null:(Array.isArray(pitch)?pitch[i++]:pitch)}))}
 const mapP=(evs,f)=>evs.map(e=>({...e,p:e.p==null?null:f(e.p)}));
@@ -170,23 +190,51 @@ const VCOL=['#4F46E5','#059669','#d97706'];
 /* ================= Rhythmussprache ================= */
 function wordsOf(evs){const w=[];
   for(let i=0;i<evs.length;i++){const e=evs[i],rest=e.p==null;
-    if(e.cont)continue;
+    if(e.cont||e.nw)continue;
     if(e.ws){e.ws.forEach(x=>w.push({b:x[0],e:x[1],t:x[2],n:x[3]}));continue}
-    if(e.d>=2){w.push({b:e.b,e:e.b+1,t:rest?'paus':'stah'});for(let k=1;k<e.d;k++)w.push({b:e.b+k,e:e.b+k+1,t:String(k+1),n:1});continue}
+    if(e.d===2&&!rest){w.push({b:e.b,e:e.b+2,t:'sta-ah'});continue}
+    if(e.d>=2){w.push({b:e.b,e:e.b+1,t:rest?'paus':'sta'});for(let k=1;k<e.d;k++)w.push({b:e.b+k,e:e.b+k+1,t:String(k+1),n:1});continue}
     if(e.d===1){w.push({b:e.b,e:e.b+1,t:rest?'paus':'Schritt'});continue}
     if(e.d===.5&&!rest&&evs[i+1]&&evs[i+1].d===.5&&evs[i+1].p!=null&&e.b%1===0){w.push({b:e.b,e:e.b+1,t:'Laufe'});i++;continue}
     if(e.d===.25&&e.b%1===0&&evs.slice(i,i+4).length===4&&evs.slice(i,i+4).every(x=>x.d===.25&&x.p!=null)){w.push({b:e.b,e:e.b+1,t:'umerenne'});i+=3;continue}
+    if(e.d===.5){const nx=evs[i+1];
+      if(rest&&nx&&nx.d===1&&nx.p!=null&&!nx.ws&&!nx.cont){w.push({b:e.b,e:e.b+1.5,t:'und Schritt'});i++;continue}
+      w.push({b:e.b,e:e.b+.5,t:rest?'und':'Hopp',s:1});continue}
   }
   return w}
 
+/* ================= Notensymbole als SVG (unabhängig von Schriftarten) ================= */
+const restQ=(x,y)=>`<path d="M${x-2.5} ${y+6} L${x+3} ${y+12} L${x-3} ${y+18.5} L${x+2.5} ${y+23} C${x-4.5} ${y+22.5} ${x-5} ${y+28.5} ${x-0.5} ${y+29.5}" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+const restE=(x,y)=>`<circle cx="${x-3.5}" cy="${y+12.5}" r="2.9" fill="currentColor"/><path d="M${x-3} ${y+13} C${x+1} ${y+16} ${x+4} ${y+13} ${x+5} ${y+9} L${x-1.5} ${y+26.5}" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>`;
+function ic(k,h){
+  const hd=(x,y,open,rx=5.4,ry=3.9)=>`<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(-20 ${x} ${y})" fill="${open?'#fff':'currentColor'}" stroke="currentColor" stroke-width="1.9"/>`;
+  const st=(x,y1,y2)=>`<line x1="${x}" x2="${x}" y1="${y1}" y2="${y2}" stroke="currentColor" stroke-width="1.9"/>`;
+  const dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="2" fill="currentColor"/>`;
+  const bm=(x1,x2,y)=>`<rect x="${x1}" y="${y}" width="${x2-x1}" height="4.4" fill="currentColor"/>`;
+  const D={
+   q:[20,hd(7,25)+st(11.9,24,5)], h:[20,hd(7,25,1)+st(11.9,24,5)], w:[24,hd(12,17,1,7.2,5)],
+   dq:[26,hd(7,25)+st(11.9,24,5)+dot(17,23)], dh:[26,hd(7,25,1)+st(11.9,24,5)+dot(17,23)],
+   e1:[24,hd(7,25)+st(11.9,24,5)+`<path d="M11.9 5 C13 12 21 13 18 22" fill="none" stroke="currentColor" stroke-width="2.4"/>`],
+   e2:[40,hd(7,25)+hd(27,25)+st(11.9,24,5)+st(31.9,24,5)+bm(11,33,4)],
+   s4:[70,hd(7,25)+hd(25,25)+hd(43,25)+hd(61,25)+st(11.9,24,5)+st(29.9,24,5)+st(47.9,24,5)+st(65.9,24,5)+bm(11,67,4)+bm(11,67,11)],
+   tie:[44,hd(7,22)+hd(35,22)+st(11.9,21,2)+st(39.9,21,2)+`<path d="M7 29 Q21 40 35 29" fill="none" stroke="currentColor" stroke-width="1.9"/>`],
+   rq:[14,restQ(7,0)], re:[14,restE(7,0)]
+  }[k];
+  return `<svg viewBox="0 0 ${D[0]} ${k==='tie'?38:32}" height="${h||28}" style="vertical-align:middle;margin-right:4px;color:#222;overflow:visible">${D[1]}</svg>`}
+function trinBar(){
+  let g='';for(let i=0;i<5;i++)g+=`<line x1="4" x2="226" y1="${10+i*6}" y2="${10+i*6}" stroke="#333"/>`;
+  g+='<line x1="4" x2="4" y1="10" y2="34" stroke="#333"/><line x1="226" x2="226" y1="10" y2="34" stroke="#333"/>';
+  [[40,1],[105,1],[172,0]].forEach(([x,d])=>{g+=`<ellipse cx="${x}" cy="28" rx="5.4" ry="3.9" transform="rotate(-20 ${x} 28)" fill="currentColor"/><line x1="${x+5}" x2="${x+5}" y1="27" y2="5" stroke="currentColor" stroke-width="1.9"/>`;if(d)g+=`<circle cx="${x+11}" cy="26" r="2" fill="currentColor"/>`});
+  [['Trinidad',40],['Trinidad',105],['to-go',172]].forEach(([t,x])=>{g+=`<text x="${x}" y="54" text-anchor="middle" font-size="12" font-weight="700" fill="#1f2340">${t}</text>`});
+  return `<svg viewBox="0 0 230 62" width="200" style="color:#222;display:block">${g}</svg>`}
 /* ================= Notenbild (SVG) ================= */
 function renderScore(o){
   FLAT=!!o.flat;
-  const PER=o.per||4,W=1000,L=o.flat?104:84,RM=8,bw=(W-L-RM)/PER,pad=18,vh=104,top=46,nV=o.voices.length;
+  const BPB=o.bpb||4,PER=o.per||4,W=1000,L=o.flat?104:84,RM=8,bw=(W-L-RM)/PER,pad=18,vh=104,top=46,nV=o.voices.length;
   const root=html('<div class="score"></div>');
   const loc={},svgs=[];
-  const X=(bx,b)=>bx+pad+(b/4)*bw;   // gleichmässig: Taktende = nächster Taktanfang
-  const H=top+(nV-1)*vh+86;
+  const X=(bx,b)=>bx+pad+(b/BPB)*bw;   // gleichmässig: Taktende = nächster Taktanfang
+  const H=top+(nV-1)*vh+86+(o.words?18:0);
   o.systems.forEach((ids,si)=>{
     let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
     for(let v=0;v<nV;v++){
@@ -194,7 +242,7 @@ function renderScore(o){
       for(let i=0;i<5;i++)s+=`<line x1="${L-6}" x2="${L+ids.length*bw}" y1="${y0+i*8}" y2="${y0+i*8}" stroke="#333"/>`;
       s+=`<text x="8" y="${y0+27}" font-size="54" class="mus">\u{1D11E}</text>`;
       if(o.flat)s+=`<text x="60" y="${y0+23}" font-size="34" class="mus">♭</text>`;
-      s+=`<text x="${o.flat?86:62}" y="${y0+16}" class="ts">4</text><text x="${o.flat?86:62}" y="${y0+32}" class="ts">4</text>`;
+      s+=`<text x="${o.flat?86:62}" y="${y0+16}" class="ts">${BPB}</text><text x="${o.flat?86:62}" y="${y0+32}" class="ts">4</text>`;
       if(o.voiceLabel||nV>1)s+=`<text x="4" y="${y0-21}" font-size="13" font-weight="700" fill="${o.voices[v].color}">${o.voices[v].label}</text>`;
       s+=`<line x1="${L-6}" x2="${L-6}" y1="${y0}" y2="${y0+32}" stroke="#333"/>`;
     }
@@ -228,15 +276,15 @@ function renderScore(o){
         evs.forEach(e=>{
           const x=X(bx,e.b);
           if(e.p==null){flush();
-            if(e.d===1)s+=`<text x="${x-8}" y="${y0+24}" font-size="38" class="mus">\u{1D13D}</text>`;
-            else if(e.d===.5)s+=`<text x="${x-6}" y="${y0+22}" font-size="34" class="mus">\u{1D13E}</text>`;
+            if(e.d===1)s+=restQ(x,y0);
+            else if(e.d===.5)s+=restE(x,y0);
             else if(e.d===2)s+=`<rect x="${x-8}" y="${y0+11}" width="16" height="5" fill="#222"/>`;
             else s+=`<rect x="${x-8}" y="${y0+8}" width="16" height="5" fill="#222"/>`;
             return}
           const st=stepOf(e.p),y=yOf(st);
           if(e.d>.5)flush();
           s+=head(x,st,e.d,col);
-          if(e.d%1===.5&&e.d>=1)s+=`<circle cx="${x+12}" cy="${y-(st%2===0?4:0)}" r="2.3" fill="${col}"/>`;
+          if((e.d%1===.5&&e.d>=1)||e.d===3)s+=`<circle cx="${x+12}" cy="${y-(st%2===0?4:0)}" r="2.3" fill="${col}"/>`;
           if(e.cont&&tiePend){const up=tiePend.st<4,y1=yOf(tiePend.st)+(up?7:-7);s+=`<path d="M${tiePend.x+7} ${y1} Q${(tiePend.x+x)/2} ${y1+(up?11:-11)} ${x-7} ${y1}" fill="none" stroke="${col}" stroke-width="2"/>`;tiePend=null}
           if(e.tie)tiePend={x,st};
           if(isSharp(e.p)&&!(FLAT&&e.p%12===10)&&!seen[st]){seen[st]=1;s+=`<text x="${x-19}" y="${y+7}" font-size="22" class="mus" fill="${col}">♯</text>`}
@@ -247,7 +295,7 @@ function renderScore(o){
           if(!e.cont)s+=`<text class="nm" x="${x}" y="${y0+60}">${nameOf(e.p)}</text>`;
         });
         flush();
-        if(o.words)wordsOf(evs).forEach(w=>{s+=`<text class="wd${w.n?' num':''}" data-bar="${id}" data-b0="${w.b}" data-b1="${w.e}" x="${X(bx,w.b)-6}" y="${y0+66}">${w.t}</text>`});
+        if(o.words)wordsOf(evs).forEach(w=>{s+=`<text class="wd${w.n?' num':''}${w.s?' sm':''}" data-bar="${id}" data-b0="${w.b}" data-b1="${w.e}" x="${X(bx,w.b)-6}" y="${y0+82}">${w.t}</text>`});
         /* Akkorde, Volta */
         if(v===0){
           (bar.ch||[]).forEach(c=>{s+=`<text class="ch" x="${X(bx,c[0])-6+(bar.volta&&c[0]===0?14:0)}" y="${y0-12}">${c[1]}</text>`});
@@ -294,22 +342,23 @@ const Eng={ctx:null,run:null,
     o1.type='triangle';o1.frequency.value=f;o2.type='sine';o2.frequency.value=f*2;g2.gain.value=.35;
     const d=Math.min(Math.max(dur,.3),1.8);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.3*(vol||.7),t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+d);
     o1.connect(g);o2.connect(g2).connect(g);g.connect(c.destination);o1.start(t);o2.start(t);o1.stop(t+d+.05);o2.stop(t+d+.05)},
-  tap(t){const c=this.ctx,o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.setValueAtTime(900,t);o.frequency.exponentialRampToValueAtTime(500,t+.08);g.gain.setValueAtTime(.35,t);g.gain.exponentialRampToValueAtTime(.0001,t+.12);o.connect(g).connect(c.destination);o.start(t);o.stop(t+.14)},
+  tap(t){const c=this.ctx;if(!this.nb){const n=Math.floor(c.sampleRate*.09),b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,3);this.nb=b}
+    const sr=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();sr.buffer=this.nb;f.type='bandpass';f.frequency.value=1500;f.Q.value=.9;g.gain.value=1.4;sr.connect(f).connect(g).connect(c.destination);sr.start(t)},
   /* cfg: bpm, seq[], events(v,id), audible[], click, countIn, tapVoice, onFrame, onEnd */
   play(cfg){const c=this.ensure();this.stop();
-    const spb=60/cfg.bpm,st=c.currentTime+.25,cb=cfg.countIn===false?0:4,t0=st+cb*spb,total=cfg.seq.length*4,ev=[],exp=[];
+    const BPB=cfg.bpb||4,spb=60/cfg.bpm,st=c.currentTime+.25,cb=cfg.countIn===false?0:BPB,t0=st+cb*spb,total=cfg.seq.length*BPB,ev=[],exp=[];
     for(let k=0;k<cb;k++){const t=st+k*spb;ev.push({t,f:()=>this.click(t,k===0)})}
-    if(cfg.click)for(let k=0;k<total;k++){const t=t0+k*spb;ev.push({t,f:()=>this.click(t,k%4===0)})}
-    cfg.seq.forEach((id,s)=>{(cfg.audible||[]).forEach((a,v)=>{if(!a)return;cfg.events(v,id).forEach(e=>{if(e.p==null||e.cont)return;const t=t0+(s*4+e.b)*spb;ev.push({t,f:()=>this.tone(t,e.p,(e.td||e.d)*spb,.8)})})});
-      if(cfg.tapVoice!=null)cfg.events(cfg.tapVoice,id).forEach(e=>{if(e.p!=null&&!e.cont)exp.push({t:t0+(s*4+e.b)*spb,id,b:e.b,s})})});
+    if(cfg.click)for(let k=0;k<total;k++){const t=t0+k*spb;ev.push({t,f:()=>this.click(t,k%BPB===0)})}
+    cfg.seq.forEach((id,s)=>{(cfg.audible||[]).forEach((a,v)=>{if(!a)return;cfg.events(v,id).forEach(e=>{if(e.p==null||e.cont)return;const t=t0+(s*BPB+e.b)*spb;ev.push({t,f:()=>this.tone(t,e.p,(e.td||e.d)*spb,.8)})})});
+      if(cfg.tapVoice!=null)cfg.events(cfg.tapVoice,id).forEach(e=>{if(e.p!=null&&!e.cont)exp.push({t:t0+(s*BPB+e.b)*spb,id,b:e.b,s})})});
     ev.sort((a,b)=>a.t-b.t);
     const run={cfg,st,t0,spb,total,ev,ptr:0,taps:[],exp,done:false};this.run=run;
     run.timer=setInterval(()=>{while(run.ptr<ev.length&&ev[run.ptr].t<c.currentTime+.2)ev[run.ptr++].f()},25);
     const lat=()=>c.outputLatency||0;
     const frame=()=>{if(this.run!==run)return;const tn=c.currentTime-lat(),beat=(tn-t0)/spb;
-      if(beat<0)cfg.onFrame&&cfg.onFrame({counting:true,countBeat:Math.min(4,Math.max(1,Math.floor((tn-st)/spb)+1))});
+      if(beat<0)cfg.onFrame&&cfg.onFrame({counting:true,countBeat:Math.min(BPB,Math.max(1,Math.floor((tn-st)/spb)+1))});
       else if(beat>=total+.35){this.finish(run);return}
-      else{const b=Math.min(beat,total-.001),slot=Math.floor(b/4);cfg.onFrame&&cfg.onFrame({counting:false,beat:b,slot,bb:b%4,id:cfg.seq[slot]})}
+      else{const b=Math.min(beat,total-.001),slot=Math.floor(b/BPB);cfg.onFrame&&cfg.onFrame({counting:false,beat:b,slot,bb:b%BPB,id:cfg.seq[slot]})}
       run.raf=requestAnimationFrame(frame)};
     run.raf=requestAnimationFrame(frame);return run},
   finish(run){if(run.done)return;run.done=true;clearInterval(run.timer);cancelAnimationFrame(run.raf);if(this.run===run)this.run=null;run.cfg.onEnd&&run.cfg.onEnd(run,true)},
@@ -334,7 +383,7 @@ function tempoTxt(b){const c=TCODES.find(x=>Math.abs(x[1]-b)<=2);return b+' BPM'
 function controls(o){
   const st={bpm:o.bpm||76};(o.toggles||[]).forEach(t=>st[t[0]]=t[2]);
   const el=html(`<div class="row" style="margin:6px 0">
-    <div><div class="small muted">Tempo: <b class="tv"></b></div><input type="range" min="40" max="${o.max||124}" value="${st.bpm}"></div>
+    <div><div class="small muted">Tempo: <b class="tv"></b></div><input type="range" min="40" max="${o.max||140}" value="${st.bpm}"></div>
     <div class="row hide-b" style="gap:6px">${TCODES.map(c=>`<button class="btn sec" data-bpm="${c[1]}" style="padding:6px 10px;min-height:36px">${c[1]}</button>`).join('')}</div>
     <div class="row hide-b">${(o.toggles||[]).map(t=>`<span class="pill ${t[2]?'on':''}" data-k="${t[0]}">${t[1]}</span>`).join('')}</div></div>`);
   const rg=$('input',el),tv=$('.tv',el);tv.textContent=tempoTxt(st.bpm);
@@ -349,22 +398,35 @@ function rhythmBars(patList){const bars={},ids=[];patList.forEach((p,i)=>{const 
 const R4=['x0','x1','x2','x3'];
 function exDef(id,title,desc,pats,extra){const {bars,ids}=rhythmBars(pats);
   const per=(extra&&extra.per)||4,systems=[];for(let i=0;i<ids.length;i+=per)systems.push(ids.slice(i,i+per));
-  return Object.assign({id,title,desc,bars,ids,systems,bpm:66},extra||{})}
+  return Object.assign({id,title,desc,bars,ids,systems,bpm:66,bpb:4},extra||{})}
 const ex1=s=>[
  exDef('p1'+s,'Puls: tippe auf jeden Schlag','Der Klick läuft mit. Tippe bei jedem Viertel.',['Q4','Q4'],{}),
  exDef('p2'+s,'Puls halten – ohne Klick','Nach dem Einzähler schweigt der Klick. Halte den Puls allein und tippe jeden Schlag.',['Q4','Q4','Q4'],{noClickTest:true})
 ];
 const EX1=ex1(''),EX1B=ex1('b');
-const EX2=[
- exDef('r1','Ganze Noten','Sprich «stah 2 3 4» und tippe nur auf die 1.',['W','W','W','W']),
- exDef('r2','Halbe Noten','Sprich «stah 2», tippe auf 1 und 3.',['H2','H2','H2','H2']),
- exDef('r3','Schritt und Pause','«Schritt» = ein Schlag. Bei «paus» tippst du nicht – der Puls geht weiter.',['Q4','Q4','QR','QR']),
- exDef('r4','Achtel: Laufe','Zwei Achtel füllen einen Schlag: «Laufe».',['E8','E8','E8','E8'],{bpm:60}),
- exDef('r5','Sechzehntel: umerenne','Vier Sechzehntel füllen einen Schlag: «umerenne». Starte langsam!',['S16','S16','S16','S16'],{bpm:44,per:2}),
- exDef('r6','Muster 1 aus dem Arrangement','Halbe, Viertel, zwei Achtel – das kennst du aus dem Arrangement.',['M1','M1','W','M2']),
- exDef('r7','Muster 2 aus dem Arrangement','Achtung auf die Pausen!',['M3','M4','W','M5']),
- exDef('r8','Muster 3 aus dem Arrangement','Gemischte Takte – bleib am Puls.',['M6','M7','M8','M8']),
- exDef('r9','Der Rhythmus der Begleitung (Xylophon)','Genau der Rhythmus der Begleitung: Einleitung und Strophe.',['P0','P1','P2','P1','P2','P1','P2','P3','P2'],{bpm:70})
+/* Übungen des Rhythmus-Blocks (Übersicht) */
+const RX=(id,t,d,ss,x)=>exDef(id,t,d,ss.map(z=>tk(z,65)),x);
+const RX3=(id,t,d,ss,x)=>RX(id,t,d,ss,Object.assign({bpb:3},x||{}));
+const EXR={
+ half:[RX('r2','Halbe Noten','Sprich «sta-ah» (zwei Schläge lang). Tippe auf 1 und 3.',['HH','HH','HH','HH'])],
+ whole:[RX('r1','Ganze Noten','Sprich «sta 2 3 4» und tippe nur auf die 1.',['W','W','W','W'])],
+ dhalf:[RX('r10','Punktierte halbe Noten','Sprich «sta 2 3», danach «Schritt». Tippe nur auf die erste Note.',['DS','SD','DS','SD'])],
+ rest:[RX('r3','Schritt und Pause','«Schritt» = ein Schlag. Bei «paus» tippst du nicht – der Puls geht weiter.',['SSSS','SSSp','SpSp','pSSp'])],
+ und:[RX('r11','und – Schritt','«und» ist die Achtelpause (stiller halber Schlag). Danach kommt «Schritt» zwischen den Schlägen. Eine einzelne Achtel heisst «Hopp».',['uSSSo','SSuSo','uSuSS','uSHo'],{bpm:56})],
+ laufe:[RX('r4','Achtel: Laufe','Zwei Achtel füllen einen Schlag: «Laufe».',['LLLL','LSLS','SLSL','LLSS'],{bpm:60})],
+ ume:[RX('r5','Sechzehntel: umerenne','Vier Sechzehntel füllen einen Schlag: «umerenne». Starte langsam!',['UUUU','USUS','SUSU','ULUL'],{bpm:44,per:2})],
+ mix:[RX('r12','Gemischte Takte 1','Halbe, Viertel und Achtel gemischt – bleib am Puls.',['HLS','SLH','LSLS','LpLS'],{bpm:60}),
+      RX('r13','Gemischte Takte 2','Mit «und», punktierten Noten und Pausen. Achtung!',['uSHo','DS','LLH','SpH'],{bpm:56})],
+ t34:[RX3('r14','Drei Schläge: Schritt','Im 3/4-Takt zählst du 1-2-3. Tippe jeden Schlag.',['SSS','SSS','SSS','SSS'],{bpm:60}),
+      RX3('r15','sta im 3/4-Takt','Ein ganzer Takt heisst «sta 2 3». Eine halbe Note dauert zwei Schläge.',['D','HS','SH','D'],{bpm:60}),
+      RX3('r16','Gemischte 3/4-Takte','Achtel, Viertel und Pausen im Dreiertakt.',['SLS','LLS','SpS','LSL'],{bpm:56}),
+      RX3('r17','Gemischte 3/4-Takte 2','Mit halben und punktierten halben Noten.',['HS','SpL','D','LLL'],{bpm:56})]
+};
+/* Lied 1: Bausteine (Muster aus dem Lied) */
+const EXS1=[
+ exDef('r6','Muster 1 aus dem Lied','Halbe, Viertel, zwei Achtel.',['M1','M1','W','M2']),
+ exDef('r7','Muster 2 aus dem Lied','Achtung auf die Pausen!',['M3','M4','W','M5']),
+ exDef('r8','Muster 3 aus dem Lied','Gemischte Takte – bleib am Puls.',['M6','M7','M8','M8'])
 ];
 
 function exerciseCard(def,levelN,onPass,idx){
@@ -375,28 +437,29 @@ function exerciseCard(def,levelN,onPass,idx){
 const starsTxt=p=>p==null?'':p>=95?'★★★':p>=85?'★★☆':p>=CONFIG.pass?'★☆☆':'☆☆☆ '+p+'%';
 
 function buildEx(body,def,card,levelN,onPass){
-  const sc=renderScore({bars:def.bars,systems:def.systems,voices:[{label:'',color:'#222'}],events:(id,v)=>def.bars[id].v[v],words:true,per:def.per});sc.el.classList.add('nonames');
-  const ctl=controls({bpm:def.bpm,max:120,toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true]],onChange:(k,v)=>{if(k==='words')sc.el.classList.toggle('nowords',!v)}});
-  const pad=html('<div class="pad">TIPPEN</div>'),res=html('<div class="res" style="display:none"></div>');
-  const btns=html(`<div class="row"><button class="btn sec" data-a="hear">▶ Vorhören</button><button class="btn sec" data-a="prac">Üben</button><button class="btn" data-a="test">Test</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
-  body.append(ctl.el,sc.el,btns,pad,res);
+  const sc=renderScore({bars:def.bars,systems:def.systems,voices:[{label:'',color:'#222'}],events:(id,v)=>def.bars[id].v[v],words:true,per:def.per,bpb:def.bpb});sc.el.classList.add('nonames');
+  const ctl=controls({bpm:def.bpm,max:140,toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true]],onChange:(k,v)=>{if(k==='words')sc.el.classList.toggle('nowords',!v)}});
+  const pad=html('<div class="pad"><div style="text-align:center">Hier tippen<span style="display:block;font-size:14px;font-weight:600;letter-spacing:0;opacity:.85;margin-top:4px">statt klatschen: tippe im Takt auf diese Fläche</span></div></div>'),res=html('<div class="res" style="display:none"></div>');
+  const btns=html(`<div class="row stick"><button class="btn sec" data-a="hear">▶ Vorhören</button><button class="btn sec" data-a="prac">Üben</button><button class="btn" data-a="test">Test</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
+  body.append(btns,html('<div class="small muted" style="margin:0 0 4px"><b>Vorhören:</b> zuhören · <b>Üben:</b> mitklatschen, keine Wertung · <b>Test:</b> mit Wertung in %</div>'),ctl.el,sc.el,pad,res);
   const seq=def.ids;
   const setRun=r=>{$('[data-a=stop]',btns).style.display=r?'':'none';btns.querySelectorAll('[data-a]').forEach(b=>{if(b.dataset.a!=='stop')b.disabled=!!r})};
   const start=mode=>{res.style.display='none';sc.clearMarks();
     const clk=mode==='test'&&def.noClickTest?false:ctl.st.click;
     setRun(true);
-    Eng.play({bpm:ctl.st.bpm,seq,events:(v,id)=>def.bars[id].v[0],audible:[mode==='hear'],click:clk,tapVoice:mode==='test'?0:null,
+    Eng.play({bpm:ctl.st.bpm,bpb:def.bpb,seq,events:(v,id)=>def.bars[id].v[0],audible:[mode==='hear'],click:clk,tapVoice:mode==='test'?0:null,
       onFrame:f=>{if(f.counting){sc.count(f.countBeat);sc.hideCursor();sc.clearHl()}else{sc.count(null);if(ctl.st.bar){sc.cursor(f.id,f.bb);sc.hl(f.id,f.bb)}else{sc.hideCursor();sc.clearHl()}}},
       onEnd:(run,fin)=>{setRun(false);sc.count(null);sc.hideCursor();sc.clearHl();if(mode==='test'&&fin)showRes(run)}})};
   const showRes=run=>{const r=Eng.score(run);
     r.res.forEach(x=>sc.mark(x.x.id,x.x.b,x.dt==null?'#dc2626':x.cr>=1?'#16a34a':'#f59e0b'));
     const ok=r.pct>=CONFIG.pass,ms=Math.round(r.avg*1000);
-    S.best[def.id]=Math.max(S.best[def.id]||0,r.pct);save();
+    if(!def.noSave){S.best[def.id]=Math.max(S.best[def.id]||0,r.pct);save()}
     res.style.display='';res.className='res '+(ok?'pass':'fail');
     res.innerHTML=`<div class="row sp"><div><b style="font-size:20px">${r.pct} %</b> &nbsp;<span class="stars">${starsTxt(r.pct).replace(/ .*/,'')}</span></div><div class="small">Treffer ${r.hits}/${r.total}${r.extra?` · ${r.extra} zusätzlich getippt`:''}</div></div>
      <div class="small" style="margin-top:4px">${ok?'Bestanden! ':'Noch nicht ganz – versuche es nochmals. '}${r.hits?(Math.abs(ms)<25?'Dein Timing ist sehr genau.':ms>0?`Du tippst im Schnitt ${Math.abs(ms)} ms zu spät.`:`Du tippst im Schnitt ${Math.abs(ms)} ms zu früh.`):'Kein Tipp erkannt.'} <span class="muted">(grün = genau, orange = knapp, rot = verpasst)</span></div>`;
-    $('.stars',card).textContent=starsTxt(S.best[def.id]);
-    if(ok){card.classList.add('pass');$('.nr',card).textContent='✓';onPass&&onPass()}};
+    if(card){$('.stars',card).textContent=starsTxt(S.best[def.id]);if(ok){card.classList.add('pass');$('.nr',card).textContent='✓'}}
+    if(def.onResult)def.onResult(r,ok);
+    if(ok&&onPass)onPass()};
   btns.onclick=e=>{const a=e.target.dataset.a;if(!a)return;Eng.ensure();if(a==='stop')Eng.stop();else start(a)};
   const hit=e=>{e.preventDefault();Eng.onTap(e);pad.classList.add('hit');setTimeout(()=>pad.classList.remove('hit'),90)};
   pad.addEventListener('pointerdown',hit);
@@ -468,19 +531,22 @@ function casioPanel(){
 
 /* ================= Lieder ================= */
 const ELEM={
- whole:['<span style="font-size:22px">𝅝</span> ganze Note','4 Schläge','<b>stah</b> 2 3 4','<b>paus</b> 2 3 4',['r1']],
- half:['<span style="font-size:22px">𝅗𝅥</span> halbe Note','2 Schläge','<b>stah</b> 2','<b>paus</b> 2',['r2']],
- quarter:['<span style="font-size:22px">♩</span> Viertelnote','1 Schlag','<b>Schritt</b>','<b>paus</b>',['r3']],
- eighth:['<span style="font-size:22px">♪♪</span> zwei Achtel','1 Schlag','<b>Laufe</b>','',['r4']],
- sixteenth:['<span style="font-size:22px">♬♬</span> vier Sechzehntel','1 Schlag','<b>umerenne</b>','',['r5']],
- dotted:['<span style="font-size:22px">♩.</span> punktierte Viertel','1½ Schläge (3 Achtel)','<b>Trinidad</b>','',['q1']],
- tie:['<span style="font-size:22px">⁀</span> Haltebogen','Die Dauern zählen zusammen. Nur die erste Note wird angespielt.','<b>stah</b> … (Zählzeiten weiterzählen)','',['q2']],
- brk:['<span style="font-size:22px">♪</span> Achtel + Pausen','Eine Achtel, dann Pausen bis zum Taktende','<b>Hopp</b> – <b>paus</b>','',['q3']]
+ whole:[ic('w')+' ganze Note','4 Schläge','<b>sta</b> 2 3 4','<b>paus</b> 2 3 4',['r1']],
+ half:[ic('h')+' halbe Note','2 Schläge','<b>sta-ah</b>','<b>paus</b> 2',['r2']],
+ quarter:[ic('q')+' Viertelnote','1 Schlag','<b>Schritt</b>',ic('rq')+' <b>paus</b>',['r3']],
+ eighth:[ic('e2')+' zwei Achtel','1 Schlag','<b>Laufe</b>','',['r4']],
+ sixteenth:[ic('s4')+' vier Sechzehntel','1 Schlag','<b>umerenne</b>','',['r5']],
+ dotted:[ic('dq')+' punktierte Viertel','1½ Schläge (3 Achtel)','<b>Trinidad</b>','',['q1']],
+ trin:[trinBar()+' <b>ganzer Takt</b>','3 + 3 + 2 Achtel = 4 Schläge','<b>Trinidad, Trinidad, to-go</b>','',['q1']],
+ tie:[ic('tie')+' Haltebogen','Die Dauern zählen zusammen. Nur die erste Note wird angespielt.','<b>sta</b> … (Zählzeiten weiterzählen)','',['q2']],
+ brk:[ic('e1')+ic('re')+ic('rq')+' Achtel + Pausen','Eine Achtel, dann Pausen bis zum Taktende','<b>Hopp</b> – <b>paus</b>','',['q3']],
+ tieq:[ic('dq')+ic('e1')+ic('tie')+ic('q')+' Achtel + Haltebogen + Viertel','Punktierte Viertel, dann Achtel und Viertel verbunden (1½ + 1½ + 1 Schläge)','<b>Trinidad, Trinidad, to-go</b>','',['m1']],
+ dhalf:[ic('dh')+' punktierte halbe Note','3 Schläge (ganzer Takt im 3/4-Takt)','<b>sta</b> 2 3','<b>paus</b> 2 3',['r10']]
 };
 /* Lied 2: Bausteine */
 const T3=p=>[{b:0,d:1.5,p,ws:[[0,1.5,'Trinidad']]},{b:1.5,d:1.5,p,ws:[[1.5,3,'Trinidad']]},{b:3,d:1,p,ws:[[3,4,'to-go']]}];
-const BRK=p=>[{b:0,d:.5,p,ws:[[0,1,'Hopp']]},{b:.5,d:.5,p:null},{b:1,d:1,p:null},{b:2,d:2,p:null}];
-const TIE=(p,q)=>[{b:0,d:1.5,p,ws:[[0,1.5,'Trinidad']]},{b:1.5,d:.5,p:q,tie:1,td:2.5,ws:[[1.5,3,'stah'],[3,4,'4',1]]},{b:2,d:2,p:q,cont:1}];
+const BRK=p=>[{b:0,d:.5,p,ws:[[0,1,'Hopp']]},{b:.5,d:.5,p:null,nw:1},{b:1,d:1,p:null},{b:2,d:2,p:null}];
+const TIE=(p,q)=>[{b:0,d:1.5,p,ws:[[0,1.5,'Trinidad']]},{b:1.5,d:.5,p:q,tie:1,td:2.5,ws:[[1.5,3,'sta'],[3,4,'4',1]]},{b:2,d:2,p:q,cont:1}];
 const HH=(p,q)=>[{b:0,d:2,p},{b:2,d:2,p:q}];
 const B2={};
 const add2=(id,ch,mkv,pv,x)=>{B2[id]=Object.assign({ch,v:pv.map((p,i)=>mkv(p,i))},x||{})};
@@ -507,15 +573,58 @@ const Q=(id,t,d,p,x)=>exDef(id,t,d,p,x);
 [1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(i=>{B2['c'+i].raw=1});
 const EXQ=[
  Q('q1','Punktierte Viertel: Trinidad, Trinidad, to-go','Drei Töne pro Takt: zwei lange und ein kurzer. Sprich «Trinidad, Trinidad, to-go».',[T3(65),T3(65),T3(65),T3(65)]),
- Q('q2','Haltebogen','Die lange Note klingt weiter, du tippst nur die erste Note der Verbindung: «Trinidad» tippen, «stah» tippen, dann halten.',[TIE(65,65),TIE(65,65),TIE(65,65),TIE(65,65)]),
+ Q('q2','Haltebogen','Die lange Note klingt weiter, du tippst nur die erste Note der Verbindung: «Trinidad» tippen, «sta» tippen, dann halten.',[TIE(65,65),TIE(65,65),TIE(65,65),TIE(65,65)]),
  Q('q3','Pausen im Break','Eine kurze Note, dann Stille. Zähle die Pausen im Kopf mit!',[BRK(65),BRK(65),T3(65),BRK(65)]),
  Q('q4','Der Rhythmus der Strophe','Genau der Rhythmus der Strophe (Takt 1–8).',[T3(65),T3(65),T3(65),T3(65),T3(65),T3(65),T3(65),BRK(65)],{bpm:70}),
  Q('q5','Der Rhythmus des Refrains','Lange Töne, Haltebögen und am Schluss der Break.',C2.map(id=>B2[id].v[0]),{bpm:66,per:4})
 ];
 EXQ[4]=exDef('q5','Der Rhythmus des Refrains','Haltebögen, ganze und halbe Noten, am Schluss der Break.',C2.map(id=>B2[id].v[0]),{bpm:66,per:4});
+const mkLines=(sys,labels)=>sys.map((ids,i)=>({k:'ln'+i,label:labels[i],ids}));
+/* Lied 3: Alles von mir (eigene Notation, 4/4) */
+const AT=p=>[{b:0,d:1.5,p,ws:[[0,1.5,'Trinidad']]},{b:1.5,d:.5,p,tie:1,td:1.5,ws:[[1.5,3,'Trinidad']]},{b:2,d:1,p,cont:1},{b:3,d:1,p,ws:[[3,4,'to-go']]}];
+const B3={};
+const addB=(id,ch,mkv,pv,x)=>{B3[id]=Object.assign({ch,v:pv.map(p=>mkv(p))},x||{})};
+addB('s1',[[0,'Am']],AT,[64,72,69]);addB('s2',[[0,'F']],AT,[65,72,69]);addB('s3',[[0,'C']],AT,[64,72,67]);addB('s4',[[0,'G']],AT,[62,71,67]);
+const HV=p=>mk('H2',p);
+addB('p1',[[0,'Dm']],HV,[62,69,65],{rs:1});addB('p2',[[0,'Dm']],HV,[62,69,65]);addB('p3',[[0,'C']],HV,[60,67,64]);addB('p4',[[0,'G']],HV,[59,67,62],{re:1});
+addB('p5',[[0,'G']],HV,[59,67,62]);
+addB('c1',[[0,'C']],HV,[60,67,64],{rs:1});addB('c2',[[0,'C']],HV,[60,67,64]);addB('c3',[[0,'Am']],HV,[60,69,64]);addB('c4',[[0,'Am']],HV,[60,69,64]);
+addB('c5',[[0,'Dm']],HV,[62,69,65]);addB('c6',[[0,'Dm']],HV,[62,69,65]);addB('c7',[[0,'Dsus4']],HV,[62,69,67]);addB('c8',[[0,'G']],HV,[62,71,67],{re:1});
+addB('d1',[[0,'Am']],HV,[60,69,64]);addB('d2',[[0,'F']],HV,[60,69,65]);addB('d3',[[0,'C']],HV,[60,67,64]);addB('d4',[[0,'Gsus4']],HV,[60,67,62]);
+addB('e1',[[0,'Am']],HV,[60,69,64]);addB('e2',[[0,'F']],HV,[60,69,65]);addB('e3',[[0,'Csus2']],HV,[60,67,62]);addB('e4',[[0,'Gsus4']],HV,[60,67,62],{fin:1});
+const S3S=[['s1','s2','s3','s4']],S3P=[['p1','p2','p3','p4'],['p5']],S3C=[['c1','c2','c3','c4'],['c5','c6','c7','c8'],['d1','d2','d3','d4'],['e1','e2','e3','e4']];
+const P3=['p1','p2','p3','p4'],CH3=['c1','c2','c3','c4','c5','c6','c7','c8'],CD3=['d1','d2','d3','d4','e1','e2','e3','e4'];
+const S3SEQ=['s1','s2','s3','s4'],P3SEQ=P3.concat(P3,['p5']),C3SEQ=CH3.concat(CH3,CD3);
+const EXM=[
+ exDef('m1','Der Rhythmus der Strophe','Punktierte Viertel, Achtel mit Haltebogen zur Viertel, Viertel: «Trinidad, Trinidad, to-go». Du tippst nur auf die Töne, nicht auf den Haltebogen.',[AT(65),AT(65),AT(65),AT(65)],{bpm:80}),
+ exDef('m2','Halbe Noten im Wechsel','Pre-Chorus und Refrain bestehen aus halben Noten: «sta-ah, sta-ah».',['H2','H2','H2','H2','H2','H2','H2','H2'],{bpm:80,per:4}),
+ exDef('m3','Strophe und Pre-Chorus','Wechsel von «Trinidad, Trinidad, to-go» zu halben Noten.',[AT(65),AT(65),'H2','H2'],{bpm:80})
+];
+
+/* Lied 4: Scarborough Fair (3/4, Stimmen 1–3) */
+const N3=(pat,ps)=>{const ev=tk(pat,0);let i=0;ev.forEach(e=>{if(e.p!=null)e.p=ps[Math.min(i++,ps.length-1)]});return ev};
+const B4={};
+[['SSS',69,65,62],['SSS',69,65,62],['HS',67,64,60,'C'],['SSS',69,65,62],['HS',69,65,62],
+ ['SSS',69,65,62],['HS',69,65,62],['SSS',[69,71,71],[65,67,67],62,'Dm|G'],['SSS',69,65,62],['SSS',69,65,62],
+ ['HS',69,65,62],['HS',69,65,60,'F'],['SSS',69,65,60,'F'],['SSS',67,64,60,'C'],['SSS',67,64,60,'C'],
+ ['HS',69,65,62,'Dm'],['HS',67,64,60,'C'],['SSS',67,64,60,'C'],['SSS',69,65,62,'Dm'],['D',69,65,62,'Dm']].forEach((r,i)=>{
+  const id='f'+(i+1),ps=[r[1],r[2],r[3]].map(x=>[].concat(x));
+  B4[id]={ch:[],v:ps.map(a=>N3(r[0],a))}});
+/* Akkorde pro Takt */
+['Dm','Dm','C','Dm','Dm','Dm','Dm','Dm|G','Dm','Dm','Dm','F','F','C','C','Dm','C','C','Dm','Dm'].forEach((c,i)=>{
+  B4['f'+(i+1)].ch=c.includes('|')?[[0,'Dm'],[1,'G']]:[[0,c]]});
+B4.f20.fin=1;
+const S4=[1,2,3,4,5].map(r=>[0,1,2,3].map(k=>'f'+((r-1)*4+k+1)));
+const F4=[].concat(...S4);
+const EXT=[
+ RX3('t1','Drei Schläge: Viertel','Jeder Takt hat drei Schläge. Sprich «Schritt, Schritt, Schritt».',['SSS','SSS','SSS','SSS'],{bpm:90}),
+ RX3('t2','Halbe und Viertel','Die halbe Note heisst «sta-ah». Danach kommt «Schritt».',['HS','SSS','HS','SSS'],{bpm:90}),
+ RX3('t3','Der Schluss: sta 2 3','Der letzte Takt ist eine punktierte halbe Note: «sta 2 3».',['SSS','HS','SSS','D'],{bpm:90})
+];
+
 const SONGS=[
- {id:'s1',n:1,title:'Lied 1',meta:'a-Moll · 4/4 · Achtel, Viertel und Pausen',diff:1,flat:false,
-  bars:HB,systems:HSYS,kbLo:60,kbHi:76,oneTone:64,ex1:EX1,ex2:EX2,elems:['whole','half','quarter','eighth','sixteenth'],
+ {id:'s1',n:1,em:'🙈',title:'Inhibitions',meta:'a-Moll · 4/4 · Achtel, Viertel und Pausen',diff:1,flat:false,
+  bars:HB,systems:HSYS,kbLo:60,kbHi:76,oneTone:64,blocks:EXS1,lines:mkLines(HSYS,['Zeile 1','Zeile 2','Zeile 3 (mit Klammern)']),elems:['whole','half','quarter','eighth'],
   parts:[{label:'Lied',systems:HSYS,seq:'strophe',variants:true}],
   seqs:{strophe:{label:'Strophe 1–4',ids:['b0','b1','b2','b3','b4','b5','b6','b7','b8']},
         letzte:{label:'Letzte Strophe',ids:['b1','b2','b3','b4','b5','b6','b7','b9','b10']},
@@ -523,9 +632,22 @@ const SONGS=[
   l2sub:'Notenwerte lesen und tippen (Rhythmus des Arrangements)',
   l2intro:'Noten zeigen, <b>wie lange</b> ein Ton dauert (in Schlägen). Mit der <b>Rhythmussprache</b> kannst du jeden Rhythmus sprechen, bevor du ihn klatschst oder spielst:',
   t4:'Wie im Klassenarrangement: Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – aber jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, Dm, G, C, E …).',
-  t5:'Das Ziel: Jede Gruppe spielt ihre Stimme – zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm5:76},
- {id:'s2',n:2,title:'Lied 2',meta:'d-Moll · 4/4 · punktierte Viertel, Haltebögen, Break',diff:2,flat:true,
-  bars:B2,systems:S2A.concat(S2C),kbLo:57,kbHi:72,oneTone:62,ex1:EX1B,ex2:[EX2[0],EX2[1],EX2[2]].concat(EXQ),elems:['whole','half','quarter','dotted','tie','brk'],
+  t5:'Das Ziel: Jede Gruppe spielt ihre Stimme – zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:90},
+ {id:'s3',n:2,em:'❤️',title:'Alles von mir',meta:'C-Dur / a-Moll · 4/4 · Trinidad mit Haltebogen, halbe Noten',diff:2,flat:false,
+  bars:B3,systems:S3S.concat(S3P,S3C),kbLo:57,kbHi:74,oneTone:64,blocks:EXM,
+  lines:mkLines(S3S.concat(S3P,S3C),['Strophe (Takt 1–4)','Pre-Chorus (Takt 5–8)','Pre-Chorus Schluss (Takt 9)','Refrain 1 (Takt 10–13)','Refrain 2 (Takt 14–17)','Refrain 3 (Takt 18–21)','Refrain 4 (Takt 22–25)']),
+  elems:['half','dotted','tieq'],
+  parts:[{label:'Strophe',systems:S3S,seq:'strophe',variants:true},{label:'Pre-Chorus',systems:S3P,seq:'pre',variants:true},{label:'Refrain',systems:S3C,seq:'refrain',variants:true}],
+  seqs:{strophe:{label:'Strophe',ids:S3SEQ},
+        pre:{label:'Pre-Chorus',ids:P3SEQ},
+        refrain:{label:'Refrain',ids:C3SEQ},
+        ganz:{label:'Ganzes Lied',ids:S3SEQ.concat(S3SEQ,P3SEQ,C3SEQ)}},
+  l2sub:'Neue Bausteine: Achtel mit Haltebogen, halbe Noten',
+  l2intro:'Die Strophe hat den Rhythmus <b>«Trinidad, Trinidad, to-go»</b>, aber anders geschrieben: eine punktierte Viertel, dann eine Achtel mit <b>Haltebogen</b> zur Viertel, dann eine Viertel. Im Pre-Chorus und im Refrain spielst du <b>halbe Noten</b> («sta-ah»). Was du schon kannst, ist mit ✓ markiert.',
+  t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, F, C, G, Dm …). Im Refrain kommen <b>Dsus4</b>, <b>Gsus4</b> und <b>Csus2</b> vor: Dort wird ein Ton des Akkords nur um eine Taste verschoben.',
+  t5:'Strophe, Pre-Chorus und Refrain zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:120},
+ {id:'s2',n:3,em:'💣',title:'Granate',meta:'d-Moll · 4/4 · punktierte Viertel, Haltebögen, Break',diff:2,flat:true,
+  bars:B2,systems:S2A.concat(S2C),kbLo:57,kbHi:72,oneTone:62,blocks:[EXQ[0],EXQ[1],EXQ[2]],lines:mkLines(S2A.concat(S2C),['Strophe 1','Strophe 2','Strophe 3','Refrain 1','Refrain 2','Refrain 3','Refrain 4']),elems:['whole','half','quarter','dotted','trin','tie','brk'],
   parts:[{label:'Strophe',systems:S2A,seq:'strophe',variants:true},{label:'Refrain',systems:S2C,seq:'refrain',variants:false}],
   seqs:{strophe:{label:'Strophe',ids:A2.concat(['a7','a8'],A2,['a9','a10'])},
         refrain:{label:'Refrain',ids:C2},
@@ -534,16 +656,62 @@ const SONGS=[
   l2intro:'Dieses Lied hat einen neuen Rhythmus: <b>drei Töne pro Takt</b>, zwei lange und ein kurzer (3 + 3 + 2 Achtel). Sprich <b>«Trinidad, Trinidad, to-go»</b>. Im Refrain kommen Haltebögen dazu, am Ende jedes Teils ein <b>Break</b> mit Pausen. Was du schon kannst, ist mit ✓ markiert.',
   l3info:'<div class="card"><h3>Neu in diesem Lied: Vorzeichen</h3><p class="small" style="margin:0">Das <b>♭</b> am Anfang der Zeile steht für das ganze Lied: Jedes <b>h</b> wird zum <b>b</b> (schwarze Taste links vom h). Ein <b>♯</b> vor einer Note (hier <b>cis</b>, schwarze Taste rechts vom c) gilt nur bis zum Taktende.</p></div>',
   t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus («Trinidad, Trinidad, to-go») – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Dm, Am, B, A7 …). Im Refrain wechselt der Akkord mitten im Takt.',
-  t5:'Strophe und Refrain zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Achtung beim <b>Break</b>: Alle hören gleichzeitig auf. Danach singen wir dazu.',bpm5:88}
+  t5:'Strophe und Refrain zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Achtung beim <b>Break</b>: Alle hören gleichzeitig auf. Danach singen wir dazu.',bpm:110},
+ {id:'s4',n:4,em:'🌿',title:'Scarborough Fair',meta:'d-Moll · 3/4 · Viertel, halbe Noten, punktierte halbe',diff:2,flat:false,bpb:3,
+  bars:B4,systems:S4,kbLo:57,kbHi:74,oneTone:62,blocks:EXT,
+  lines:mkLines(S4,['Zeile 1 (Takt 1–4)','Zeile 2 (Takt 5–8)','Zeile 3 (Takt 9–12)','Zeile 4 (Takt 13–16)','Zeile 5 (Takt 17–20)']),
+  elems:['quarter','half','dhalf'],
+  parts:[{label:'Lied',systems:S4,seq:'ganz',variants:true}],
+  seqs:{ganz:{label:'Ganzes Lied',ids:F4}},
+  l2sub:'Neu: der 3/4-Takt mit halben und punktierten halben Noten',
+  l2intro:'Dieses Lied steht im <b>3/4-Takt</b>: Jeder Takt hat <b>drei Schläge</b> (1-2-3). Meistens spielst du drei Viertel («Schritt, Schritt, Schritt»). An manchen Stellen kommt eine halbe Note dazu («sta-ah, Schritt») und am Schluss eine punktierte halbe Note («sta 2 3»). Was du schon kannst, ist mit ✓ markiert.',
+  t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Dm, C, F, G). Zähle im Kopf immer <b>1-2-3</b>.',
+  t5:'Das ganze Lied zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:134}
 ];
+/* ================= Akkordprojekt ================= */
+/* Griffe für das Mini-Piano (MIDI), Grundstellung/Lage nahe beieinander */
+const AK_CH={C:[60,64,67],Dm:[62,65,69],Em:[64,67,71],F:[60,65,69],G:[62,67,71],Am:[60,64,69],E7:[62,64,68,71]};
+const AK_ORDER=['C','Am','F','G','Dm','Em','E7'];
+/* Lieder: nur Akkorde, Tempo, Begleitrhythmus. Weitere Lieder folgen, sobald die Vorlagen geprüft sind. */
+const AK_SONGS=[
+ {id:'jack',title:'Hit the Road Jack',artist:'Ray Charles',bpm:87,key:'a-Moll',chords:['Am','G','F','E7'],
+  form:[['Intro / Strophe / Refrain','Am – G – F – E7'],['Wiederholung','Am – G – F – E7']],
+  rhythm:'Ein Akkord pro Schlag (Viertel): «Schritt, Schritt, Schritt, Schritt». Jeder Akkord wird einmal angeschlagen.',bpb:4}
+];
+function akkordProjekt(m){
+  S.akk=S.akk||{};
+  m.append(html(`<div class="card"><h2>🎸 Akkordprojekt</h2><p class="muted" style="margin:0">Lerne zuerst die Akkorde. Hake ab, welche du schon kannst. Unten siehst du dann Lieder, die du mit diesen Akkorden begleiten kannst. Mit dem Metronom übst du im Tempo des Lieds.</p></div>`));
+  const box=html('<div></div>');m.append(box);
+  const draw=()=>{box.innerHTML='';
+    box.append(html('<h3 style="margin:14px 4px 6px">1 · Akkorde lernen</h3>'));
+    AK_ORDER.forEach(c=>{
+      const notes=AK_CH[c],kb=keyboard({},57,76),on=!!S.akk[c];
+      const paint=()=>{const mp={};notes.forEach(n=>mp[n]='#a5b4fc');kb.paint(mp)};paint();
+      const card=html(`<div class="card"><div class="row sp"><h3 style="margin:0">${c}</h3><span class="pill ${on?'on':''}" data-a="k">${on?'✓ kann ich':'kann ich noch nicht'}</span></div>
+        <p class="small muted" style="margin:6px 0">Tasten: <b>${notes.map(nameOf).join(' – ')}</b> (zusammen drücken)</p><div class="akb"></div><div class="row" style="margin-top:8px"><button class="btn sec" data-a="h">▶ Akkord hören</button></div></div>`);
+      $('.akb',card).append(kb.el);
+      card.onclick=e=>{const a=e.target.dataset.a;
+        if(a==='h'){Eng.ensure();const t=Eng.ctx.currentTime+.05;notes.forEach(n=>Eng.tone(t,n,1.4,.6))}
+        if(a==='k'){S.akk[c]=!S.akk[c];save();draw()}};
+      box.append(card)});
+    box.append(html('<h3 style="margin:18px 4px 6px">2 · Lieder mit deinen Akkorden</h3>'));
+    AK_SONGS.forEach(sg=>{
+      const ok=sg.chords.every(c=>S.akk[c]),miss=sg.chords.filter(c=>!S.akk[c]);
+      const card=html(`<div class="card ${ok?'':'locked'}" style="${ok?'':'opacity:.75'}"><div class="row sp"><div><h3 style="margin:0">${sg.title}</h3><div class="small muted">${sg.artist} · ${sg.key} · ${sg.bpm} BPM</div></div>
+        <span class="tag">${ok?'✓ spielbar':'noch fehlt: '+miss.join(', ')}</span></div>
+        <p style="margin:8px 0 4px"><b>Akkorde:</b> ${sg.chords.map(c=>`<span class="pill ${S.akk[c]?'on':''}">${c}</span>`).join(' ')}</p>
+        ${sg.form.map(f=>`<div class="small"><b>${f[0]}:</b> ${f[1]}</div>`).join('')}
+        <p class="small muted" style="margin:8px 0 0"><b>Rhythmus:</b> ${sg.rhythm}</p><div class="mt"></div></div>`);
+      $('.mt',card).append(metroCard(sg.bpb,'Metronom ('+sg.bpm+' BPM)',sg.bpm));
+      box.append(card)})};
+  draw()}
+
 let CUR=null,view='home';
 const doneK=n=>CUR.id+'_'+n,isDone=n=>!!S.done[doneK(n)];
 for(let n=1;n<=5;n++)if(S.done[n]&&!S.done['s1_'+n])S.done['s1_'+n]=true;
-function variantEvents(id,v,variant){
-  const bar=CUR.bars[id],orig=bar.v[v];
-  if(variant==='C'||bar.raw)return orig;
-  const p=orig.find(e=>e.p!=null).p;
-  return mk(variant==='A'?'W':'Q4',p)}
+/* Umstellung auf 4 Level (alt: 1 Puls, 2 Bausteine, 3 Ein Ton, 4 Akkordtöne, 5 Zusammen) */
+if(!S.mig2){['s1','s2'].forEach(id=>{const o={};[2,3,4,5].forEach((n,i)=>{if(S.done[id+'_'+n])o[id+'_'+(i+1)]=true});[1,2,3,4,5].forEach(n=>delete S.done[id+'_'+n]);Object.assign(S.done,o)});S.mig2=true;save()}
+
 
 /* ================= Mini-Piano kennenlernen ================= */
 function miniPiano(box){
@@ -555,51 +723,142 @@ function miniPiano(box){
   const kb=keyboard({onKey:m=>{FLAT=false;$('.ln',kc).textContent=nameOf(m)+(isSharp(m)?(m%12===10?' / b':''):'')}},57,76);$('.kbw',kc).append(kb.el);box.append(kc);
 }
 
-/* ================= Level 1 & 2 ================= */
-function level1(box){
-  box.append(html(`<div class="card"><h2>Der Puls</h2><p>Jede Musik hat einen <b>Puls</b>: gleichmässige Schläge, wie ein Herzschlag. Wir zählen sie in Gruppen. Bei <b>4/4</b> gehören vier Schläge zu einem Takt: <b>1</b>-2-3-4. Die Eins ist die wichtigste.</p><p class="small muted">Tipp: Tippe mit dem Fuss mit. So wird der Puls zu deinem Körper.</p></div>`));
-  const m=html(`<div class="card"><h3>Metronom</h3><div class="mc"></div><div class="dots"><i></i><i></i><i></i><i></i></div><div class="row"><button class="btn" data-a="go">▶ Start</button></div></div>`);
-  const c=controls({bpm:66,max:120});$('.mc',m).append(c.el);const dots=[...m.querySelectorAll('.dots i')];let on=false;
+/* ================= Rhythmus-Block (Übersicht) ================= */
+function metroCard(bpb,title,bpm0){
+  const m=html(`<div class="card"><h3>${title||'Metronom'}</h3><div class="mc"></div><div class="dots">${'<i></i>'.repeat(bpb)}</div><div class="row"><button class="btn" data-a="go">▶ Start</button></div></div>`);
+  const c=controls({bpm:bpm0||66});$('.mc',m).append(c.el);const dots=[...m.querySelectorAll('.dots i')];let on=false;
   m.onclick=e=>{if(e.target.dataset.a!=='go')return;Eng.ensure();if(on){Eng.stop();return}on=true;e.target.textContent='■ Stopp';
-    Eng.play({bpm:c.st.bpm,seq:new Array(24).fill('x'),events:()=>[],audible:[],click:true,countIn:false,
+    Eng.play({bpm:c.st.bpm,bpb,seq:new Array(24).fill('x'),events:()=>[],audible:[],click:true,countIn:false,
       onFrame:f=>{if(f.counting)return;const k=Math.floor(f.bb);dots.forEach((d,i)=>{d.className=i===k?'on'+(k===0?' acc':''):''})},
       onEnd:()=>{on=false;dots.forEach(d=>d.className='');$('[data-a=go]',m).textContent='▶ Start'}})};
-  box.append(m);
-  const L=CUR.ex1;L.forEach((d,i)=>box.append(exerciseCard(d,1,()=>checkLevel(1,L),i)));
+  return m}
+function genCard(pool,bpb,label){
+  const card=html(`<div class="card" style="background:#f7f8ff"><div class="row sp"><div><h3 style="margin:0">🎲 Zufallsrhythmus</h3><div class="small muted">Vier neue Takte mit den Bausteinen bis «${label}».</div></div><button class="btn sec" data-a="g">Neu würfeln</button></div><div class="gh"></div></div>`);
+  const host=$('.gh',card);
+  const roll=()=>{Eng.stop();host.innerHTML='';
+    const ss=[0,1,2,3].map(()=>randBar(pool,bpb));
+    const def=exDef('gen','Zufallsrhythmus','',ss.map(x=>tk(x,65)),{bpb,noSave:true,per:pool.includes('U')?2:4,bpm:pool.includes('U')?50:64});
+    const body=html('<div style="margin-top:10px"></div>');host.append(body);buildEx(body,def,null,0)};
+  card.onclick=e=>{if(e.target.dataset.a==='g')roll()};
+  return card}
+const RLESS=[
+ {t:'Puls und Schritt',sub:'Gleichmässig tippen: «Schritt»',pool:'S',pre:()=>metroCard(4),ex:EX1,
+  intro:'<p><b>Was ist der Puls?</b> Der Puls ist der gleichmässige Grundschlag der Musik – wie dein Herzschlag oder deine Schritte beim Gehen. Er bleibt immer gleich schnell, auch wenn die Musik eine Pause macht. Du findest ihn, wenn du bei einem Lied automatisch mitwippst, mit dem Fuss tippst oder mitklatschst.</p><p><b>Puls und Rhythmus:</b> Der Puls läuft gleichmässig durch. Der <b>Rhythmus</b> sind die kurzen und langen Töne, die darüber gespielt werden. Der Puls ist wie ein Lineal, der Rhythmus sind die Striche darauf.</p><p><b>Takt:</b> Wir zählen die Pulsschläge in Gruppen. Bei <b>4/4</b> sind es vier Schläge pro Takt: <b>1</b>-2-3-4, <b>1</b>-2-3-4. Die Eins wird betont. Ein Pulsschlag heisst in unserer Rhythmussprache <b>«Schritt»</b>.</p><p class="small muted">Ausprobieren: Starte das Metronom, tippe mit dem Fuss mit und zähle laut 1-2-3-4. Dann halte den Puls ohne Klick (zweite Übung).</p>'},
+ {t:'sta-ah: die halbe Note',sub:'Zwei Schläge lang: «sta-ah»',pool:'SH',ex:EXR.half,
+  intro:'<p>Eine <b>halbe Note</b> dauert zwei Schläge. Du sprichst <b>«sta-ah»</b> und tippst nur auf die 1.</p>'},
+ {t:'sta 2 3 4: die ganze Note',sub:'Ein ganzer Takt: «sta 2 3 4»',pool:'SHW',ex:EXR.whole,
+  intro:'<p>Eine <b>ganze Note</b> füllt den ganzen Takt: <b>«sta 2 3 4»</b>. Du tippst nur auf die 1.</p>'},
+ {t:'sta 2 3: die punktierte halbe Note',sub:'Drei Schläge lang',pool:'SHWD',ex:EXR.dhalf,
+  intro:'<p>Der <b>Punkt</b> verlängert die Note um die Hälfte: Eine <b>punktierte halbe Note</b> dauert drei Schläge: <b>«sta 2 3»</b>.</p>'},
+ {t:'paus: die Viertelpause',sub:'Stille Schläge',pool:'SHWDp',ex:EXR.rest,
+  intro:'<p>Eine <b>Pause</b> ist ein stiller Schlag. Du sprichst <b>«paus»</b>, tippst aber nicht – der Puls läuft weiter.</p>'},
+ {t:'und: die Achtelpause',sub:'«und – Schritt», einzelne Achtel «Hopp»',pool:'SHWDpuo',ex:EXR.und,
+  intro:'<p>Die <b>Achtelpause</b> ist ein stiller halber Schlag. Du sprichst <b>«und»</b>. Danach folgt oft ein <b>«Schritt»</b>, der <i>zwischen</i> den Schlägen liegt. Eine einzelne <b>Achtel</b> heisst <b>«Hopp»</b>.</p>'},
+ {t:'Laufe: zwei Achtel',sub:'Zwei Töne auf einen Schlag',pool:'SHWDpuoL',ex:EXR.laufe,
+  intro:'<p>Zwei <b>Achtel</b> füllen einen Schlag: <b>«Laufe»</b>.</p>'},
+ {t:'umerenne: vier Sechzehntel',sub:'Vier Töne auf einen Schlag',pool:'SHWDpuoLU',ex:EXR.ume,
+  intro:'<p>Vier <b>Sechzehntel</b> füllen einen Schlag: <b>«umerenne»</b>. Das ist schnell: Beginne langsam!</p>'},
+ {t:'Alles gemischt (4/4)',sub:'Takte mit allen Bausteinen',pool:'SHWDpuoLU',ex:EXR.mix,
+  intro:'<p>Jetzt mischen wir alles, was du kennst. Bleib immer am Puls.</p>'},
+ {t:'Der 3/4-Takt',sub:'Drei Schläge pro Takt',pool:'SHDpL',bpb:3,pre:()=>metroCard(3,'Metronom im 3/4-Takt'),ex:EXR.t34,
+  intro:'<p>Beim <b>3/4-Takt</b> gehören drei Schläge zu einem Takt: <b>1</b>-2-3, <b>1</b>-2-3 – wie bei einem Walzer. Ein ganzer Takt ist <b>«sta 2 3»</b> (punktierte halbe Note).</p>'}
+];
+function lessonCard(L,i){
+  const isDone=()=>L.ex.length&&L.ex.every(d=>S.best[d.id]>=CONFIG.pass);
+  const c=html(`<div class="card lesson"><div class="lh"><div class="nr">${isDone()?'✓':i+1}</div><div style="flex:1"><h3 style="margin:0">${L.t}</h3><div class="small muted">${L.sub}</div></div><div class="small" style="color:var(--ind);font-weight:700">Öffnen ›</div></div><div class="lb"></div></div>`);
+  let built=false;
+  $('.lh',c).onclick=()=>{c.classList.toggle('open');if(built)return;built=true;const lb=$('.lb',c);
+    lb.append(html(`<div>${L.intro}</div>`));if(L.pre)lb.append(L.pre());
+    L.ex.forEach((d,k)=>lb.append(exerciseCard(d,0,()=>{if(isDone())$('.nr',c).textContent='✓'},k)));
+    if(L.pool)lb.append(genCard(L.pool,L.bpb||4,L.t))};
+  return c}
+function rhythmHub(box){
+  box.append(html(`<div class="card"><h2>Puls und Rhythmus</h2><p>Hier lernst du die <b>Rhythmussprache</b> und alle Notenwerte, Stufe für Stufe. Zu jeder Stufe gibt es Beispiele zum Mitklatschen und einen <b>Zufallsrhythmus</b> zum Üben. Das brauchst du in jedem Lied.</p>
+   <h3 style="margin-top:12px">So übst du</h3>
+   <ul class="small" style="margin:4px 0 0;padding-left:20px"><li><b>▶ Vorhören:</b> Die App spielt den Rhythmus vor. Du hörst nur zu.</li><li><b>Üben:</b> Klick und Balken laufen. Du klatschst oder tippst mit. Es gibt keine Wertung.</li><li><b>Test:</b> Nach dem Einzähler tippst du den Rhythmus selbst. Danach siehst du, wie genau du warst (in %).</li><li><b>Fläche «Hier tippen»:</b> Sie ersetzt das Klatschen. Tippe im Takt darauf. Bei jedem Tipp hörst du ein Klatschgeräusch.</li></ul></div>`));
+  box.append(html(`<div class="card"><h3>Die Bausteine</h3><table class="t"><tr><th>Baustein</th><th>Rhythmussprache</th></tr>
+   <tr><td>${ic('q')} Viertel (1 Schlag)</td><td><b>Schritt</b></td></tr>
+   <tr><td>${ic('h')} halbe (2 Schläge)</td><td><b>sta-ah</b></td></tr>
+   <tr><td>${ic('dh')} punktierte halbe (3 Schläge)</td><td><b>sta</b> 2 3</td></tr>
+   <tr><td>${ic('w')} ganze (4 Schläge)</td><td><b>sta</b> 2 3 4</td></tr>
+   <tr><td>${ic('e2')} zwei Achtel</td><td><b>Laufe</b></td></tr>
+   <tr><td>${ic('s4')} vier Sechzehntel</td><td><b>umerenne</b></td></tr>
+   <tr><td>${ic('e1')} einzelne Achtel</td><td><b>Hopp</b></td></tr>
+   <tr><td>${ic('rq')} Viertelpause</td><td><b>paus</b></td></tr>
+   <tr><td>${ic('re')} Achtelpause</td><td><b>und</b></td></tr></table></div>`));
+  RLESS.forEach((L,i)=>box.append(lessonCard(L,i)));
 }
-function level2(box){
+
+/* ================= Level 1 & 2: Auswahl von Bausteinen und Zeilen ================= */
+function songItems(){
+  const items=[];
+  CUR.blocks.forEach(d=>items.push({id:d.id,label:d.title,grp:'Bausteine im Lied',bars:d.ids.map((k,i)=>({key:d.id+'_'+i,ev:d.bars[k].v[0],fl:{}}))}));
+  CUR.lines.forEach(l=>items.push({id:CUR.id+'_'+l.k,label:l.label,grp:'Zeilen des Lieds',bars:l.ids.map(k=>{const b=CUR.bars[k],fl={};['re','fin','rs','volta'].forEach(f=>{if(b[f]!==undefined)fl[f]=b[f]});return{key:k,ev:b.v[0],fl}})}));
+  return items}
+function combine(sel,fn){const bars={},systems=[],ids=[];
+  sel.forEach(it=>{const row=[];it.bars.forEach(b=>{bars[b.key]=Object.assign({ch:[],v:[fn(b.ev)]},b.fl);row.push(b.key);ids.push(b.key)});systems.push(row)});
+  return{bars,systems,ids}}
+function selPanel(box,build,hint){
+  const items=songItems(),on=new Set([items[0].id]),groups=[...new Set(items.map(i=>i.grp))];
+  const card=html(`<div class="card hide-b"><h3>Was möchtest du üben?</h3><p class="small muted" style="margin:0 0 6px">${hint}</p><div class="selx"></div><div class="row" style="gap:8px"><button class="btn sec" data-a="all">Alles auswählen</button><button class="btn sec" data-a="none">Nichts</button></div></div>`);
+  const host=html('<div></div>');
+  const draw=()=>{$('.selx',card).innerHTML=groups.map(g=>`<div class="small muted" style="margin-top:6px">${g}</div><div class="chips">${items.filter(i=>i.grp===g).map(i=>`<span class="pill ${on.has(i.id)?'on':''}" data-id="${i.id}">${S.best[i.id]>=CONFIG.pass?'✓ ':''}${i.label}</span>`).join('')}</div>`).join('')};
+  const rebuild=()=>{Eng.stop();host.innerHTML='';const sel=items.filter(i=>on.has(i.id));
+    if(!sel.length){host.append(html('<div class="card muted">Wähle mindestens einen Baustein oder eine Zeile.</div>'));return}
+    build(host,sel)};
+  card.onclick=e=>{const a=e.target.dataset.a,p=e.target.closest('[data-id]');
+    if(a==='all')items.forEach(i=>on.add(i.id));else if(a==='none')on.clear();else if(p){const id=p.dataset.id;on.has(id)?on.delete(id):on.add(id)}else return;
+    draw();rebuild()};
+  draw();box.append(card,host);rebuild();
+  return{draw,rebuild}}
+
+function level1(box){
   const best=ids=>ids.every(i=>S.best[i]>=CONFIG.pass);
   const rows=CUR.elems.map(k=>{const e=ELEM[k],ok=best(e[4]);return `<tr><td>${e[0]}</td><td>${e[1]}</td><td>${e[2]}</td><td>${e[3]}</td><td style="white-space:nowrap">${ok?'<b style="color:var(--ok)">✓ kennst du</b>':'<b style="color:var(--warn)">neu</b>'}</td></tr>`}).join('');
-  box.append(html(`<div class="card"><h2>Bausteine und Rhythmussprache</h2><p>${CUR.l2intro}</p>
+  const intro=html(`<div class="card"><h2>Bausteine und Rhythmus</h2><p>${CUR.l2intro}</p>
    <table class="t"><tr><th>Baustein</th><th>Dauer</th><th>Rhythmussprache</th><th>Pause</th><th>Stand</th></tr>${rows}</table>
-   <p class="small muted" style="margin-top:10px">So gehst du vor: ① Hören (▶ Vorhören) ② Sprechen mit Klick und Balken ③ Klatschen ④ Test. Mit dem Schalter «Rhythmussprache» blendest du die Wörter aus – wer sie auswendig kann, übt ohne.</p></div>`));
-  const L=CUR.ex2;L.forEach((d,i)=>box.append(exerciseCard(d,2,()=>checkLevel(2,L),i)));
+   <p class="small muted" style="margin-top:10px">So gehst du vor: ① Hören (▶ Vorhören) ② Sprechen mit Klick und Balken ③ Klatschen ④ Test. Mit dem Schalter «Rhythmussprache» blendest du die Wörter aus. Das Tempo ist zuerst das Originaltempo des Lieds (${CUR.bpm} BPM). Stell es langsamer, wenn du es brauchst.</p>
+   <button class="btn sec" data-a="rhy">Bausteine noch unklar? Zum Rhythmus-Block</button></div>`);
+  intro.onclick=e=>{if(e.target.dataset.a==='rhy')go('rhy')};
+  box.append(intro);
+  const checkL1=()=>{if(songItems().every(i=>S.best[i.id]>=CONFIG.pass)&&!isDone(1))finishLevel(1,true)};
+  const sp=selPanel(box,(host,sel)=>{
+    const c=combine(sel,ev=>mapP(ev,()=>65));
+    const def={id:'sel',bars:c.bars,ids:c.ids,systems:c.systems,bpm:CUR.bpm,bpb:CUR.bpb||4,per:4,noSave:true,
+      onResult:(r,ok)=>{if(ok){sel.forEach(it=>{S.best[it.id]=Math.max(S.best[it.id]||0,r.pct)});save();sp.draw();checkL1()}}};
+    const body=html('<div class="card"></div>');host.append(body);buildEx(body,def,null,1)},
+    'Tippe die Bausteine und Zeilen an. Sie werden der Reihe nach gespielt. Mit «Test» (alles richtig getippt) hakst du sie ab.');
+  const nv=html(`<div class="card hide-b"><div class="row">${navHtml(1)}</div></div>`);nv.onclick=e=>navClick(e.target.dataset.a,1);box.append(nv);
 }
-function checkLevel(n,list){if(list.every(d=>S.best[d.id]>=CONFIG.pass)&&!isDone(n))finishLevel(n,true)}
 
-/* ================= Level 3–5: Spielen am Mini-Piano ================= */
+/* ================= Level 2–4: Spielen am Mini-Piano ================= */
+const navHtml=n=>`<button class="btn sec" data-a="prev">‹ Zurück</button><button class="btn sec" data-a="next">${n>=4?'Zur Liederauswahl ›':'Weiter ›'}</button>`;
+function navClick(a,n){if(a==='prev')go(n>1?n-1:'song');else if(a==='next'){if(n>=4)go('song');else if(unlocked(n+1))go(n+1);else toast('Schliesse zuerst Level '+n+' ab.')}}
 function approval(n,box,text){
   const self=isDemo()||(S.apr||CONFIG.approval)==='self';
   const c=html(self
-   ?`<div class="card hide-b"><h3>Abschluss</h3><p class="small muted">${isDemo()?'Demo-Version: Alle Level sind offen, ein Freigabewort ist nicht nötig.':'Wenn du es kannst, schliesse das Level selbst ab.'}</p><button class="btn ok" data-a="self">Level ${n} abschliessen</button></div>`
-   :`<div class="card hide-b"><h3>Abschluss</h3><p class="small muted">${text}</p><div class="row"><input type="text" placeholder="Freigabewort" autocapitalize="off" autocomplete="off" style="width:200px"><button class="btn ok" data-a="ok">Freigabe prüfen</button></div></div>`);
+   ?`<div class="card hide-b"><h3>Abschluss</h3><p class="small muted">${isDemo()?'Demo-Version: Alle Level sind offen, ein Freigabewort ist nicht nötig.':'Wenn du es kannst, schliesse das Level selbst ab.'}</p><div class="row"><button class="btn ok" data-a="self">Level ${n} abschliessen</button>${navHtml(n)}</div></div>`
+   :`<div class="card hide-b"><h3>Abschluss</h3><p class="small muted">${text}</p><div class="row"><input type="text" placeholder="Freigabewort" autocapitalize="off" autocomplete="off" style="width:200px"><button class="btn ok" data-a="ok">Freigabe prüfen</button></div><div class="row" style="margin-top:10px">${navHtml(n)}</div></div>`);
   if(isDone(n))c.querySelector('p').textContent='Dieses Level ist abgeschlossen. ✓';
-  c.onclick=e=>{const a=e.target.dataset.a;if(a==='self'){finishLevel(n);return}if(a!=='ok')return;const v=$('input',c).value.trim().toLowerCase();
+  c.onclick=e=>{const a=e.target.dataset.a;if(a==='prev'||a==='next'){navClick(a,n);return}if(a==='self'){finishLevel(n);return}if(a!=='ok')return;const v=$('input',c).value.trim().toLowerCase();
     if(v===CONFIG.codes[n]||v===CONFIG.teacher){if(v===CONFIG.teacher){S.teacher=true;save()}finishLevel(n)}else toast('Das Freigabewort stimmt nicht. Spiele deiner Lehrperson vor.')};
   box.append(c)}
 
 function practicePanel(box,o){
-  const sc=renderScore({bars:CUR.bars,systems:o.systems||CUR.systems,flat:CUR.flat,voices:o.voices,voiceLabel:o.voiceLabel,colorNotes:o.colorNotes,events:o.events});
+  const bpb=CUR.bpb||4;
+  const sc=renderScore({bars:o.bars||CUR.bars,systems:o.systems||CUR.systems,flat:CUR.flat,bpb,voices:o.voices,voiceLabel:o.voiceLabel,colorNotes:o.colorNotes,events:o.events,words:!!o.words});
   if(!o.names)sc.el.classList.add('nonames');
-  const kbw=html('<div class="hide-k"></div>'),kb=keyboard(null,CUR.kbLo,CUR.kbHi);kbw.append(kb.el);
-  const btns=html(`<div class="row"><button class="btn" data-a="go">▶ Start</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
-  const ctl=controls({bpm:o.bpm||76,max:124,toggles:o.toggles,onChange:(k,v)=>{
+  const wt=(o.toggles||[]).find(t=>t[0]==='words');if(wt&&!wt[2])sc.el.classList.add('nowords');
+  const kbw=html('<div class="hide-k"></div>'),kb=keyboard({},CUR.kbLo,CUR.kbHi);kbw.append(kb.el);
+  const btns=html(`<div class="row stick"><button class="btn" data-a="go">▶ Start</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
+  const ctl=controls({bpm:o.bpm||CUR.bpm,toggles:o.toggles,onChange:(k,v)=>{
       if(k==='names')sc.el.classList.toggle('nonames',!v);
+      if(k==='words')sc.el.classList.toggle('nowords',!v);
       if(k==='keys')kbw.style.display=v?'':'none';
       o.onToggle&&o.onToggle(k,v,ctl.st)}});
   kbw.style.display=ctl.st.keys===false?'none':'';
   const aud=()=>o.audible(ctl.st);
-  const run=()=>{Eng.ensure();Eng.play({bpm:ctl.st.bpm,seq:CUR.seqs[o.seqKey(ctl.st)].ids,events:(v,id)=>o.events(id,v),audible:aud(),click:ctl.st.click,
+  const run=()=>{Eng.ensure();Eng.play({bpm:ctl.st.bpm,bpb,seq:o.seqIds?o.seqIds():CUR.seqs[o.seqKey(ctl.st)].ids,events:(v,id)=>o.events(id,v),audible:aud(),click:ctl.st.click,
     onFrame:f=>{if(f.counting){sc.count(f.countBeat);sc.hideCursor();return}sc.count(null);
       if(ctl.st.bar)sc.cursor(f.id,f.bb);else sc.hideCursor();
       const map={};o.voices.forEach((vo,v)=>{if(o.keyVoices&&!o.keyVoices(ctl.st)[v])return;const e=o.events(f.id,v).find(e=>e.p!=null&&e.b<=f.bb+.001&&f.bb<e.b+e.d-.001)||o.events(f.id,v).filter(e=>e.p!=null&&e.b<=f.bb).pop();if(e)map[e.p]=vo.color});
@@ -607,41 +866,55 @@ function practicePanel(box,o){
     onEnd:()=>{btns.firstChild.style.display='';$('[data-a=stop]',btns).style.display='none';sc.count(null);sc.hideCursor();kb.paint({})}});
     $('[data-a=go]',btns).style.display='none';$('[data-a=stop]',btns).style.display=''};
   btns.onclick=e=>{const a=e.target.dataset.a;if(a==='go')run();if(a==='stop')Eng.stop()};
-  box.append(ctl.el);if(o.extra)box.append(o.extra);box.append(sc.el,btns,html('<div style="height:6px"></div>'),kbw);
+  box.append(btns,ctl.el);if(o.extra)box.append(o.extra);box.append(sc.el,html('<div style="height:6px"></div>'),kbw);
   return{ctl,sc}}
+const firstTone=v=>CUR.bars[CUR.seqs.ganz.ids[0]].v[v].find(e=>e.p!=null).p;
+const seg=(arr,cur)=>`<div class="seg">${arr.map(a=>`<button data-v="${a[0]}" class="${a[0]===cur?'on':''}">${a[1]}</button>`).join('')}</div>`;
 
-function level3(box){
-  const P=CUR.parts[0],tone=CUR.oneTone;FLAT=CUR.flat;const tn=nameOf(tone);
+function level2(box){
+  FLAT=CUR.flat;let voice=0;
   if(CUR.l3info)box.append(html(CUR.l3info));
-  box.append(html(`<div class="card"><h2>Rhythmus auf einem Ton</h2><p>Jetzt wird es musikalisch: Du spielst den Rhythmus aus Level 2 am <b>Mini-Piano</b> – zuerst nur auf <b>einem Ton: ${tn}</b>. Das Tastaturbild zeigt dir die Taste.</p>
-   <ol><li>Klatsche den Rhythmus mit (Balken beobachten).</li><li>Spiele ihn auf ${tn}.</li><li>Steigere das Tempo.</li></ol>
+  box.append(html(`<div class="card"><h2>Rhythmus auf einem Ton</h2><p>Jetzt wird es musikalisch: Du spielst die Rhythmen aus Level 1 am <b>Mini-Piano</b> – zuerst nur auf <b>einem Ton</b>, dem ersten Ton deiner Stimme. Das Tastaturbild zeigt dir die Taste. Du kannst die Tasten auch auf dem Bildschirm antippen.</p>
+   <ol><li>Klatsche den Rhythmus mit (Balken beobachten).</li><li>Spiele ihn auf dem Ton.</li><li>Steigere das Tempo.</li></ol>
    <p class="small muted">Ohne Lärm: Klick ausschalten, nur dem Balken folgen. Mit eigenem Kopfhörer am iPad hörst du den Klick und die Begleitung.</p></div>`));
-  const e=(id,v)=>mapP(CUR.bars[id].v[0],()=>tone);
-  practicePanel(box,{systems:P.systems,voices:[{label:'Alle',color:'#4F46E5'}],voiceLabel:true,colorNotes:true,events:(id,v)=>e(id,v),names:true,bpm:66,
-    toggles:[['click','Klick',true],['bar','Balken',true],['keys','Taste zeigen',true],['names','Notennamen',true],['hear','Ton hören',false]],
-    audible:st=>[st.hear],seqKey:()=>P.seq,keyVoices:()=>[true]});
-  approval(3,box,'Spiele deiner Lehrperson den Rhythmus auf '+tn+' vor. Du bekommst ein Freigabewort für das nächste Level.');
+  const vs=html(`<div class="card hide-b"><div class="small muted">Deine Stimme (bestimmt den Ton)</div><div class="vs">${seg([[0,'Stimme 1'],[1,'Stimme 2'],[2,'Stimme 3']],0)}</div></div>`);
+  box.append(vs);
+  const sp=selPanel(box,(host,sel)=>{FLAT=CUR.flat;const tone=firstTone(voice),tn=nameOf(tone),c=combine(sel,ev=>mapP(ev,()=>tone));
+    host.append(html(`<div class="small muted" style="margin:0 0 6px">Dein Ton: <b>${tn}</b></div>`));
+    practicePanel(host,{bars:c.bars,systems:c.systems,seqIds:()=>c.ids,voices:[{label:'Stimme '+(voice+1),color:VCOL[voice]}],voiceLabel:true,colorNotes:true,events:(id,v)=>c.bars[id].v[0],names:true,words:true,
+      toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true],['keys','Taste zeigen',true],['names','Notennamen',true],['hear','Ton hören',false]],
+      audible:st=>[st.hear],keyVoices:()=>[true]})},
+    'Wähle die Bausteine und Zeilen, die du auf dem Ton spielen möchtest.');
+  vs.onclick=e=>{const b=e.target.closest('button');if(!b)return;vs.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');voice=+b.dataset.v;sp.rebuild()};
+  approval(2,box,'Spiele deiner Lehrperson den Rhythmus auf deinem Ton vor. Du bekommst ein Freigabewort für das nächste Level.');
 }
-function level4(box){
-  let voice=0,variant='C',pi=0;const parts=CUR.parts;
+function variantEvents(id,v,variant){
+  const bar=CUR.bars[id],orig=bar.v[v];
+  if(variant==='C'||bar.raw)return orig;
+  const p=orig.find(e=>e.p!=null).p,bpb=CUR.bpb||4;
+  return variant==='A'?tk(bpb===3?'D':'W',p):tk('S'.repeat(bpb),p)}
+function level3(box){
+  let voice=0,variant='C',pi=0;
+  const parts=CUR.parts.length>1?CUR.parts.concat([{label:'Beides',systems:CUR.systems,seq:'ganz',variants:true}]):CUR.parts;
+  const bpb=CUR.bpb||4;
   box.append(html(`<div class="card"><h2>Gleicher Rhythmus, andere Töne</h2><p>${CUR.t4}</p></div>`));
   const sel=html(`<div class="card hide-b"><div class="row"><div><div class="small muted">Deine Gruppe</div><div class="seg" data-g="v"><button data-v="0" class="on">Stimme 1</button><button data-v="1">Stimme 2</button><button data-v="2">Stimme 3</button></div></div>
     ${parts.length>1?`<div><div class="small muted">Teil</div><div class="seg" data-g="p">${parts.map((p,i)=>`<button data-p="${i}" class="${i?'':'on'}">${p.label}</button>`).join('')}</div></div>`:''}
-    <div class="dsel"><div class="small muted">Schwierigkeit</div><div class="seg" data-g="d"><button data-d="A">A · ein Schlag</button><button data-d="B">B · Viertel</button><button data-d="C" class="on">C · Melodie</button></div></div></div>
-    <p class="small muted dtx" style="margin:8px 0 0">A: pro Takt eine ganze Note · B: vier Viertel pro Takt · C: der echte Rhythmus aus dem Lied.</p></div>`);
+    <div class="dsel"><div class="small muted">Schwierigkeit</div><div class="seg" data-g="d"><button data-d="A">A · ${bpb===3?'«sta 2 3»':'ganze Noten'}</button><button data-d="B">B · Viertel</button><button data-d="C" class="on">C · Original</button></div></div></div>
+    <p class="small muted dtx" style="margin:8px 0 0">A: pro Takt ein Ton (${bpb===3?'punktierte halbe Note':'ganze Note'}) · B: ein Ton auf jedem Schlag · C: der echte Rhythmus aus dem Lied.</p></div>`);
   box.append(sel);
   const host=html('<div></div>');box.append(host);
   const build=()=>{host.innerHTML='';Eng.stop();const P=parts[pi],vv=P.variants!==false;
     sel.querySelector('.dsel').style.display=vv?'':'none';sel.querySelector('.dtx').style.display=vv?'':'none';FLAT=CUR.flat;
-    practicePanel(host,{systems:P.systems,voices:[{label:'Stimme '+(voice+1),color:VCOL[voice]}],voiceLabel:true,colorNotes:true,events:(id,v)=>variantEvents(id,voice,vv?variant:'C'),names:true,bpm:66,
-      toggles:[['click','Klick',true],['bar','Balken',true],['keys','Taste zeigen',true],['names','Notennamen',true],['hear','Ton hören',false]],
+    practicePanel(host,{systems:P.systems,voices:[{label:'Stimme '+(voice+1),color:VCOL[voice]}],voiceLabel:true,colorNotes:true,events:(id,v)=>variantEvents(id,voice,vv?variant:'C'),names:true,words:true,
+      toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true],['keys','Taste zeigen',true],['names','Notennamen',true],['hear','Ton hören',false]],
       audible:st=>[st.hear],seqKey:()=>P.seq,keyVoices:()=>[true]})};
   sel.onclick=e=>{const b=e.target.closest('button');if(!b)return;const g=b.parentElement;g.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
     if(b.dataset.v!=null)voice=+b.dataset.v;if(b.dataset.d)variant=b.dataset.d;if(b.dataset.p!=null)pi=+b.dataset.p;build()};
   build();
-  approval(4,box,'Spiele deiner Lehrperson deine Stimme vor. Danach bekommst du das Freigabewort.');
+  approval(3,box,'Spiele deiner Lehrperson deine Stimme vor. Danach bekommst du das Freigabewort.');
 }
-function level5(box){
+function level4(box){
   box.append(html(`<div class="card"><h2>Alle zusammen</h2><p>${CUR.t5}</p><p class="small muted">Schalte deine eigene Stimme stumm und spiele sie live. Die anderen Stimmen hörst du vom iPad. Für die Klasse: «Beamer-Ansicht».</p></div>`));
   const host=html('<div></div>');box.append(host);
   const keys=Object.keys(CUR.seqs);let seqKey=keys[0];
@@ -650,24 +923,24 @@ function level5(box){
   seqSel.onclick=e=>{const b=e.target.closest('button');if(b){seqSel.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');seqKey=b.dataset.s}
     const p=e.target.closest('[data-b]');if(p){document.body.classList.toggle('beamer');p.classList.toggle('on');if(document.body.classList.contains('beamer')){const bb=html('<span class="pill on" id="bx" style="position:fixed;right:10px;bottom:10px;z-index:30">Beamer beenden</span>');bb.onclick=()=>{document.body.classList.remove('beamer');bb.remove();p.classList.remove('on')};document.body.append(bb)}}};
   box.insertBefore(seqSel,host);FLAT=CUR.flat;
-  practicePanel(host,{voices,colorNotes:true,events:(id,v)=>CUR.bars[id].v[v],names:false,bpm:CUR.bpm5,
+  practicePanel(host,{voices,colorNotes:true,events:(id,v)=>CUR.bars[id].v[v],names:false,
     toggles:[['click','Klick',true],['bar','Balken',true],['keys','Tasten zeigen',true],['v0','Stimme 1 hören',true],['v1','Stimme 2 hören',true],['v2','Stimme 3 hören',true]],
     audible:st=>[st.v0,st.v1,st.v2],seqKey:()=>seqKey,keyVoices:()=>[true,true,true]});
-  approval(5,box,'Wenn die Klasse die Akkorde zusammen spielt, gibt es das letzte Freigabewort. Danach singen wir dazu.');
+  approval(4,box,'Wenn die Klasse die Akkorde zusammen spielt, gibt es das letzte Freigabewort. Danach singen wir dazu.');
 }
 
 /* ================= Übersicht & Navigation ================= */
 const LEVELS=[
- {n:1,t:'Puls',ic:'💓',sub:()=>'Gleichmässig tippen mit dem Metronom',f:level1},
- {n:2,t:'Bausteine & Rhythmus',ic:'👏',sub:()=>CUR.l2sub,f:level2},
- {n:3,t:'Ein Ton',ic:'🎯',sub:()=>'Den Rhythmus auf einem Ton spielen',f:level3},
- {n:4,t:'Akkordtöne',ic:'🎼',sub:()=>'Drei Gruppen, gleicher Rhythmus, andere Töne',f:level4},
- {n:5,t:'Zusammen',ic:'🎶',sub:()=>'Alle Stimmen = Akkorde – dann singen wir',f:level5}
+ {n:1,t:'Bausteine & Rhythmus',ic:'👏',sub:()=>CUR.l2sub,f:level1},
+ {n:2,t:'Ein Ton',ic:'🎯',sub:()=>'Die Rhythmen auf einem Ton spielen',f:level2},
+ {n:3,t:'Akkordtöne',ic:'🎼',sub:()=>'Drei Gruppen, gleicher Rhythmus, andere Töne',f:level3},
+ {n:4,t:'Zusammen',ic:'🎶',sub:()=>'Alle Stimmen = Akkorde – dann singen wir',f:level4}
 ];
 const isDemo=()=>DEMO||S.demo;
 const unlocked=n=>n===1||isDemo()||S.teacher||isDone(n-1);
-const progress=s=>[1,2,3,4,5].filter(n=>S.done[s.id+'_'+n]).length;
-function finishLevel(n,auto){S.done[doneK(n)]=true;save();toast('Level '+n+' geschafft! ✓'+(n<5?' Das nächste Level ist offen.':' Jetzt wird gesungen!'));if(!auto)setTimeout(()=>go('song'),900)}
+const NLV=4;
+const progress=s=>[1,2,3,4].filter(n=>S.done[s.id+'_'+n]).length;
+function finishLevel(n,auto){S.done[doneK(n)]=true;save();toast('Level '+n+' geschafft! ✓'+(n<NLV?' Das nächste Level ist offen.':' Jetzt wird gesungen!'));if(!auto)setTimeout(()=>go('song'),900)}
 function go(v,sid){Eng.stop();document.body.classList.remove('beamer');$('#bx')?.remove();if(sid)CUR=SONGS.find(s=>s.id===sid);view=v;render();window.scrollTo(0,0)}
 function render(){
   FLAT=false;
@@ -676,19 +949,25 @@ function render(){
   bk.textContent=typeof view==='number'?'‹ '+CUR.title:'‹ Übersicht';
   if(view==='home'){$('#ttl').textContent='Piano Levels';
     if(isDemo())m.append(html('<div class="card" style="background:#fef3c7;border-color:#fde68a"><b>Demo-Version:</b> Alle Level sind offen und ein Freigabewort ist nicht nötig.</div>'));
-    m.append(html(`<div class="card"><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Wähle ein Lied. Jedes Lied beginnt mit dem Puls und dem Rhythmus und führt bis zur gemeinsamen Akkordbegleitung.</p></div>`));
+    m.append(html(`<div class="card"><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Übe zuerst Puls und Rhythmus. Wähle dann ein Lied: Jedes Lied führt über seine Rhythmus-Bausteine bis zur gemeinsamen Akkordbegleitung.</p></div>`));
     SONGS.forEach(s=>{const p=progress(s);
-      const c=html(`<div class="card song"><div class="sn">${s.n}</div><div style="flex:1;min-width:0"><h3>${s.title}</h3><div class="small muted">${s.meta}</div>
-        <div class="row" style="margin-top:8px;gap:10px"><span class="dots5">${[1,2,3,4,5].map(n=>`<i class="${S.done[s.id+'_'+n]?'on':''}"></i>`).join('')}</span><span class="small muted">${p} von 5 Levels</span><span class="tag">Schwierigkeit ${'●'.repeat(s.diff)+'○'.repeat(3-s.diff)}</span></div></div>
-        <div class="st"><span style="color:var(--ind)">${p===5?'Geschafft ✓':p?'Weiter ›':'Starten ›'}</span></div></div>`);
+      const c=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">${s.em}</div><div style="flex:1;min-width:0"><h3>${s.title}</h3><div class="small muted">${s.meta}</div>
+        <div class="row" style="margin-top:8px;gap:10px"><span class="dots5">${[1,2,3,4].map(n=>`<i class="${S.done[s.id+'_'+n]?'on':''}"></i>`).join('')}</span><span class="small muted">${p} von 4 Levels</span><span class="tag">Schwierigkeit ${'●'.repeat(s.diff)+'○'.repeat(3-s.diff)}</span></div></div>
+        <div class="st"><span style="color:var(--ind)">${p===4?'Geschafft ✓':p?'Weiter ›':'Starten ›'}</span></div></div>`);
       c.onclick=()=>go('song',s.id);m.append(c)});
+    const ak=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">🎸</div><div style="flex:1;min-width:0"><h3>Akkordprojekt</h3><div class="small muted">Akkorde lernen und Lieder damit begleiten</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
+    ak.onclick=()=>go('akk');m.append(ak);
+    const rh=html(`<div class="card lv"><div class="ic">🥁</div><div><h3>Puls und Rhythmus</h3><div class="small muted">Rhythmussprache, Notenwerte, Zufallsrhythmen (4/4 und 3/4)</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
+    rh.onclick=()=>go('rhy');m.append(rh);
     const mp=html(`<div class="card lv"><div class="ic">🎹</div><div><h3>Mini-Piano kennenlernen</h3><div class="small muted">Bedienfeld, Tasten und Tastennamen</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
     mp.onclick=()=>go('mini');m.append(mp)}
   else if(view==='mini'){$('#ttl').textContent='Mini-Piano';miniPiano(m)}
+  else if(view==='akk'){$('#ttl').textContent='Akkordprojekt';akkordProjekt(m)}
+  else if(view==='rhy'){$('#ttl').textContent='Puls und Rhythmus';rhythmHub(m)}
   else if(view==='song'){$('#ttl').textContent=CUR.title;
     const p=progress(CUR);
-    m.append(html(`<div class="card"><div class="row sp"><div><h2>${CUR.title}</h2><p class="muted" style="margin:0">${CUR.meta}</p></div><span class="tag">${p} von 5 Levels</span></div>
-      <p class="small muted" style="margin:10px 0 0">Der Weg: Puls → Bausteine &amp; Rhythmus → Ein Ton → Akkordtöne → Zusammen.</p></div>`));
+    m.append(html(`<div class="card"><div class="row sp"><div><h2>${CUR.title}</h2><p class="muted" style="margin:0">${CUR.meta}</p></div><span class="tag">${p} von 4 Levels</span></div>
+      <p class="small muted" style="margin:10px 0 0">Der Weg: Bausteine &amp; Rhythmus → Ein Ton → Akkordtöne → Zusammen. Puls und Notenwerte übst du vorher im Rhythmus-Block.</p></div>`));
     LEVELS.forEach(l=>{const un=unlocked(l.n),dn=isDone(l.n);
       const c=html(`<div class="card lv ${dn?'done':''} ${un?'':'locked'}"><div class="ic">${dn?'✓':l.ic}</div><div><h3>Level ${l.n} · ${l.t}</h3><div class="small muted">${l.sub()}</div></div><div class="st">${dn?'<span style="color:var(--ok)">Geschafft</span>':un?'<span style="color:var(--ind)">Öffnen ›</span>':'🔒'}</div></div>`);
       c.onclick=()=>{if(un)go(l.n);else toast('Schliesse zuerst Level '+(l.n-1)+' ab.')};m.append(c)})}
