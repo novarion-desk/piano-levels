@@ -146,7 +146,7 @@ const PAT={
 function mk(key,pitch){let i=0;return PAT[key].map(e=>({b:e[0],d:e[1],p:e[2]?null:(Array.isArray(pitch)?pitch[i++]:pitch)}))}
 const mapP=(evs,f)=>evs.map(e=>({...e,p:e.p==null?null:f(e.p)}));
 
-/* Hemmige – Klassenarrangement: Stimme 1/2/3 (Xylophon 1/2/3) */
+/* Beispiellied – Klassenarrangement: Stimme 1/2/3 (Xylophon 1/2/3) */
 const HB={
  b0:{ch:[],v:[mk('P0',64),mk('P0',72),mk('P0',69)]},
  b1:{ch:[[0,'Am']],rs:1,v:[mk('P1',64),mk('P1',72),mk('P1',69)]},
@@ -361,10 +361,10 @@ const EX2=[
  exDef('r3','Schritt und Pause','«Schritt» = ein Schlag. Bei «paus» tippst du nicht – der Puls geht weiter.',['Q4','Q4','QR','QR']),
  exDef('r4','Achtel: Laufe','Zwei Achtel füllen einen Schlag: «Laufe».',['E8','E8','E8','E8'],{bpm:60}),
  exDef('r5','Sechzehntel: umerenne','Vier Sechzehntel füllen einen Schlag: «umerenne». Starte langsam!',['S16','S16','S16','S16'],{bpm:44,per:2}),
- exDef('r6','Hemmige-Muster 1','Halbe, Viertel, zwei Achtel – das kennst du aus dem Arrangement.',['M1','M1','W','M2']),
- exDef('r7','Hemmige-Muster 2','Achtung auf die Pausen!',['M3','M4','W','M5']),
- exDef('r8','Hemmige-Muster 3','Gemischte Takte – bleib am Puls.',['M6','M7','M8','M8']),
- exDef('r9','Der Hemmige-Rhythmus (Xylophon)','Genau der Rhythmus der Begleitung: Einleitung und Strophe.',['P0','P1','P2','P1','P2','P1','P2','P3','P2'],{bpm:70})
+ exDef('r6','Muster 1 aus dem Arrangement','Halbe, Viertel, zwei Achtel – das kennst du aus dem Arrangement.',['M1','M1','W','M2']),
+ exDef('r7','Muster 2 aus dem Arrangement','Achtung auf die Pausen!',['M3','M4','W','M5']),
+ exDef('r8','Muster 3 aus dem Arrangement','Gemischte Takte – bleib am Puls.',['M6','M7','M8','M8']),
+ exDef('r9','Der Rhythmus der Begleitung (Xylophon)','Genau der Rhythmus der Begleitung: Einleitung und Strophe.',['P0','P1','P2','P1','P2','P1','P2','P3','P2'],{bpm:70})
 ];
 
 function exerciseCard(def,levelN,onPass){
@@ -560,7 +560,7 @@ function level4(box){
   let voice=0,variant='C';const st4={};
   box.append(html(`<div class="card"><h2>Gleicher Rhythmus, andere Töne</h2><p>Wie im Klassenarrangement: Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – aber jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, Dm, G, C, E …).</p></div>`));
   const sel=html(`<div class="card hide-b"><div class="row"><div><div class="small muted">Deine Gruppe</div><div class="seg" data-g="v"><button data-v="0" class="on">Stimme 1</button><button data-v="1">Stimme 2</button><button data-v="2">Stimme 3</button></div></div>
-    <div><div class="small muted">Schwierigkeit</div><div class="seg" data-g="d"><button data-d="A">A · ein Schlag</button><button data-d="B">B · Viertel</button><button data-d="C" class="on">C · Hemmige</button></div></div></div>
+    <div><div class="small muted">Schwierigkeit</div><div class="seg" data-g="d"><button data-d="A">A · ein Schlag</button><button data-d="B">B · Viertel</button><button data-d="C" class="on">C · Melodie</button></div></div></div>
     <p class="small muted" style="margin:8px 0 0">A: pro Takt eine ganze Note · B: vier Viertel pro Takt · C: der echte Rhythmus aus dem Arrangement.</p></div>`);
   box.append(sel);
   const host=html('<div></div>');box.append(host);
@@ -592,7 +592,7 @@ function level5(box){
 const LEVELS=[
  {n:0,t:'Kennenlernen',ic:'🎹',sub:'Mini-Piano, Tasten, 5 Minuten ausprobieren',f:level0},
  {n:1,t:'Puls',ic:'💓',sub:'Gleichmässig tippen mit dem Metronom',f:level1},
- {n:2,t:'Rhythmus',ic:'👏',sub:'Notenwerte lesen und tippen (Hemmige-Rhythmus)',f:level2},
+ {n:2,t:'Rhythmus',ic:'👏',sub:'Notenwerte lesen und tippen (Rhythmus des Arrangements)',f:level2},
  {n:3,t:'Ein Ton',ic:'🎯',sub:'Den Rhythmus auf einem Ton spielen',f:level3},
  {n:4,t:'Akkordtöne',ic:'🎼',sub:'Drei Gruppen, gleicher Rhythmus, andere Töne',f:level4},
  {n:5,t:'Zusammen',ic:'🎶',sub:'Alle Stimmen = Akkorde – dann singen wir',f:level5}
@@ -608,7 +608,7 @@ function render(){
   if(view==='home'){$('#ttl').textContent='Piano Levels';
     const nd=LEVELS.filter(l=>S.done[l.n]).length;
     if(isDemo())m.append(html('<div class="card" style="background:#fef3c7;border-color:#fde68a"><b>Demo-Version:</b> Alle Level sind offen und ein Freigabewort ist nicht nötig.</div>'));
-    m.append(html(`<div class="card"><div class="row sp"><div><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Vom Puls bis zur gemeinsamen Akkordbegleitung (mit dem Lied «Hemmige»).</p></div><span class="tag">${nd} von ${LEVELS.length} Levels</span></div></div>`));
+    m.append(html(`<div class="card"><div class="row sp"><div><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Vom Puls bis zur gemeinsamen Akkordbegleitung (mit einem Beispiellied).</p></div><span class="tag">${nd} von ${LEVELS.length} Levels</span></div></div>`));
     LEVELS.forEach(l=>{const un=unlocked(l.n),dn=S.done[l.n];
       const c=html(`<div class="card lv ${dn?'done':''} ${un?'':'locked'}"><div class="ic">${dn?'✓':l.ic}</div><div><h3>Level ${l.n} · ${l.t}</h3><div class="small muted">${l.sub}</div></div><div class="st">${dn?'<span style="color:var(--ok)">Geschafft</span>':un?'<span style="color:var(--ind)">Öffnen ›</span>':'🔒'}</div></div>`);
       c.onclick=()=>{if(un)go(l.n);else toast('Schliesse zuerst Level '+(l.n-1)+' ab.')};m.append(c)})}

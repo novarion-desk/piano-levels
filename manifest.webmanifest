@@ -3,8 +3,8 @@
   "short_name": "Piano Levels",
   "description": "Schritt für Schritt Klavier lernen: Puls, Rhythmus, Akkorde.",
   "lang": "de",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#f4f5fb",
@@ -27,5 +27,5 @@
       "purpose": "maskable"
     }
   ],
-  "id": "/"
+  "id": "./"
 }

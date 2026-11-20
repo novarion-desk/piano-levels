@@ -7,9 +7,12 @@ Reine statische Seite (`index.html`), keine Build-Schritte.
 ## Hinweise
 - **Demo:** Adresse mit `?demo` aufrufen oder oben rechts den Knopf «Demo» drücken: alle Level offen.
 - **Freigabe:** In `index.html` oben in `CONFIG` einstellen: `approval:'teacher'` (Freigabewort) oder `'self'` (Schüler schalten selbst frei). Freigabewörter und Lehrercode stehen ebenfalls dort.
-- **Das Lied «Hemmige»** (Mani Matter) ist nur ein Beispiel für Tests. Vor einer öffentlichen Veröffentlichung durch andere Lieder ersetzen. Deshalb ist dieses Repository privat.
+- **Beispiellied:** Das Klassenarrangement (Rhythmus, Stimmen, Akkorde) ist ein Beispiel. Weitere Lieder folgen.
 
-## Firebase Hosting
+## Veröffentlichung
+GitHub Pages (Branch `main`, Ordner `/`). Die App ist als Chrome-/iPad-App installierbar.
+
+## Firebase Hosting (optional)
 ```
 npm i -g firebase-tools
 firebase login
