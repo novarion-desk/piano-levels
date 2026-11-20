@@ -330,7 +330,7 @@ function keyboard(interactive,lo=60,hi=76){
   const el=html(s);let last='';
   const paint=map=>{const k=JSON.stringify(map);if(k===last)return;last=k;
     el.querySelectorAll('rect').forEach(r=>{const m=+r.dataset.m,c=map[m];r.setAttribute('fill',c||(WH.includes(m)?'#fff':'#222'));r.setAttribute('opacity',c?'.9':'1')})};
-  if(interactive)el.addEventListener('pointerdown',e=>{const m=+e.target.dataset?.m;if(!m)return;Eng.ensure();Eng.tone(Eng.ctx.currentTime,m,.8,.9);paint({[m]:'#a5b4fc'});if(interactive.onKey)interactive.onKey(m);setTimeout(()=>paint({}),350)});
+  if(interactive)el.addEventListener('pointerdown',e=>{const m=+e.target.dataset?.m;if(!m)return;Eng.ensure();Eng.tone(Eng.ctx.currentTime,m,.8,.9);if(!interactive.sticky)paint({[m]:'#a5b4fc'});if(interactive.onKey)interactive.onKey(m);if(!interactive.sticky)setTimeout(()=>paint({}),350)});
   return{el,paint};
 }
 
@@ -669,42 +669,228 @@ const SONGS=[
   t5:'Das ganze Lied zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:134}
 ];
 /* ================= Akkordprojekt ================= */
-/* Griffe für das Mini-Piano (MIDI), Grundstellung/Lage nahe beieinander */
-const AK_CH={C:[60,64,67],Dm:[62,65,69],Em:[64,67,71],F:[60,65,69],G:[62,67,71],Am:[60,64,69],E7:[62,64,68,71]};
-const AK_ORDER=['C','Am','F','G','Dm','Em','E7'];
-/* Lieder: nur Akkorde, Tempo, Begleitrhythmus. Weitere Lieder folgen, sobald die Vorlagen geprüft sind. */
-const AK_SONGS=[
- {id:'jack',title:'Hit the Road Jack',artist:'Ray Charles',bpm:87,key:'a-Moll',chords:['Am','G','F','E7'],
-  form:[['Intro / Strophe / Refrain','Am – G – F – E7'],['Wiederholung','Am – G – F – E7']],
-  rhythm:'Ein Akkord pro Schlag (Viertel): «Schritt, Schritt, Schritt, Schritt». Jeder Akkord wird einmal angeschlagen.',bpb:4}
-];
+const CROOT=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','H'];
+const CTYPE={
+ dur:{iv:[0,4,7],sfx:'',txt:'Dur',steps:[4,3],feel:'hell, fröhlich'},
+ moll:{iv:[0,3,7],sfx:'m',txt:'Moll',steps:[3,4],feel:'dunkel, ernst'},
+ dim:{iv:[0,3,6],sfx:'dim',txt:'vermindert',steps:[3,3],feel:'gespannt, unruhig'},
+ aug:{iv:[0,4,8],sfx:'aug',txt:'übermässig',steps:[4,4],feel:'schwebend, rätselhaft'},
+ dom7:{iv:[0,4,7,10],sfx:'7',txt:'Septakkord',steps:[4,3,3],feel:'spannungsvoll, will weiter'}
+};
+const chName=(r,t)=>CROOT[r]+CTYPE[t].sfx;
+const chFull=(r,t)=>t==='moll'?CROOT[r].toLowerCase()+'-Moll':CROOT[r]+'-'+CTYPE[t].txt;
+const chNotes=(r,t,inv=0,base=60)=>{const n=CTYPE[t].iv.map(i=>base+r+i);for(let k=0;k<inv;k++)n.push(n.shift()+12);return n};
+const invTxt=k=>['Grundstellung','1. Umkehrung','2. Umkehrung','3. Umkehrung'][k];
+const pcsOf=(r,t)=>CTYPE[t].iv.map(i=>(r+i)%12).sort((a,b)=>a-b);
+const samePcs=(p,r,t)=>{const s=[...new Set(p.map(x=>x%12))].sort((a,b)=>a-b),w=pcsOf(r,t);return s.length===w.length&&s.every((x,i)=>x===w[i])};
+const tonesTxt=n=>n.map(nameOf).join(' – ');
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+const AKCOL=['#4F46E5','#059669','#d97706','#db2777'];
+const akOpen=()=>isDemo()||S.teacher;
+const akPass=id=>(S.best[id]||0)>=CONFIG.pass;
+
+/* Übungs-Karte: Akkord wird genannt, auf dem digitalen Piano drücken, App sagt richtig/falsch */
+function chordQuiz(o){
+  const card=html(`<div class="card"><div class="row sp"><h3 style="margin:0">${o.title}</h3><span class="tag qs"></span></div><div class="small muted" style="margin:4px 0 8px">${o.desc}</div><div class="cq"></div></div>`);
+  const host=$('.cq',card),tag=$('.qs',card);
+  const stat=()=>{const b=S.best[o.id];tag.textContent=b==null?'noch offen':(b>=CONFIG.pass?'✓ ':'')+b+' %'};stat();
+  const N=o.n||8;let qs,qi,ok,si,pressed,prev,done,kbC;
+  const intro=()=>{Eng.stop();host.innerHTML=`<button class="btn" data-a="go">▶ Start (${N} Aufgaben)</button>`;
+    host.onclick=e=>{if(e.target.dataset.a==='go'){qs=Array.from({length:N},()=>o.gen());qi=0;ok=0;ask()}}};
+  const ask=()=>{const q=qs[qi];si=0;pressed=[];prev=null;done=false;draw()};
+  const draw=()=>{const q=qs[qi],st=q.stages[si];
+    host.innerHTML=`<div class="small muted">Aufgabe ${qi+1} von ${N}</div><div style="font-size:20px;margin:6px 0">${st.prompt}</div><div class="kbh"></div>
+      <div class="small" style="margin:6px 0;min-height:22px">Gedrückt: <b class="pr">–</b></div><div class="msg" style="min-height:26px;font-weight:700"></div>
+      <div class="row" style="margin-top:6px"><button class="btn sec" data-a="clr">Neu drücken</button><button class="btn" data-a="next" style="display:none">Weiter ›</button></div>`;
+    kbC=keyboard({onKey:press,sticky:true},o.lo||55,o.hi||84);$('.kbh',host).append(kbC.el);
+    host.onclick=e=>{const a=e.target.dataset.a;if(a==='clr'){pressed=[];kbC.paint({});upd();$('.msg',host).textContent='';done=false;$('[data-a=next]',host).style.display='none'}
+      if(a==='next'){qi++;qi>=N?fin():ask()}}};
+  const upd=()=>{const el=$('.pr',host);if(el)el.textContent=pressed.length?pressed.slice().sort((a,b)=>a-b).map(nameOf).join(' – '):'–'};
+  const colr=(good,sol)=>{const mp={};pressed.forEach(m=>mp[m]=good===undefined?'#a5b4fc':(good||(sol&&sol.includes(m)))?'#86efac':'#fca5a5');if(good===false&&sol)sol.forEach(m=>{if(!pressed.includes(m))mp[m]='#fde68a'});kbC.paint(mp)};
+  const press=m=>{if(done||!host.querySelector('.pr'))return;if(pressed.includes(m))return;pressed.push(m);upd();colr();
+    const q=qs[qi],st=q.stages[si];if(pressed.length<st.need)return;
+    const p=pressed.slice().sort((a,b)=>a-b),res=st.ok(p,prev),msg=$('.msg',host);
+    if(res===true){colr(true);if(si<q.stages.length-1){prev=p;si++;pressed=[];msg.style.color='var(--ok)';
+        setTimeout(()=>{if(!host.isConnected)return;draw();$('.msg',host).style.color='var(--ok)';$('.msg',host).textContent='✓ Erster Akkord richtig'},500);return}
+      done=true;ok++;msg.style.color='var(--ok)';msg.textContent='✓ Richtig!';$('[data-a=next]',host).style.display=''}
+    else{colr(false,st.sol);done=true;msg.style.color='var(--bad)';msg.innerHTML='✗ Nicht ganz. '+(typeof res==='string'?res+' ':'')+'<span class="muted" style="font-weight:400">Gesucht: '+st.answer+' (rot = falsch, gelb = fehlt)</span>';$('[data-a=next]',host).style.display=''}};
+  const fin=()=>{const pct=Math.round(100*ok/N);S.best[o.id]=Math.max(S.best[o.id]||0,pct);save();stat();o.onDone&&o.onDone();
+    host.innerHTML=`<div style="font-size:20px;font-weight:700;color:${pct>=CONFIG.pass?'var(--ok)':'var(--warn)'}">${ok} von ${N} richtig (${pct} %)</div><p class="small muted">${pct>=CONFIG.pass?'Bestanden!':'Zum Bestehen brauchst du '+CONFIG.pass+' %. Probier es nochmals.'}</p><button class="btn" data-a="again">Nochmals</button>`;
+    host.onclick=e=>{if(e.target.dataset.a==='again'){qs=Array.from({length:N},()=>o.gen());qi=0;ok=0;ask()}}};
+  intro();return card}
+
+/* Aufgaben-Erzeuger */
+const WROOT=[0,2,4,5,7,9];
+const stChord=(r,t,inv,ex)=>{const iv=CTYPE[t].iv,low=(r+iv[inv||0])%12;
+  return{prompt:`Spiele <b>${chFull(r,t)}</b>${inv==null?' in <b>Grundstellung</b> (Grundton ganz unten)':inv>0?` in der <b>${invTxt(inv)}</b>`:' in <b>Grundstellung</b>'}`,need:iv.length,
+   ok:p=>samePcs(p,r,t)&&(p[0]%12===low)?true:(samePcs(p,r,t)?'Die Töne stimmen, aber der unterste Ton nicht.':false),
+   answer:tonesTxt(chNotes(r,t,inv||0))+' (oder höher/tiefer)',sol:chNotes(r,t,inv||0)}};
+const genGrund=(roots,types)=>()=>{const r=rnd(roots),t=rnd(types);return{stages:[stChord(r,t,null)]}};
+const genInv=()=>{const r=rnd(WROOT),t=rnd(['dur','moll']),inv=rnd([1,2]);return{stages:[stChord(r,t,inv)]}};
+const WPAIRS=[[[0,'dur'],[7,'dur']],[[7,'dur'],[9,'moll']],[[9,'moll'],[5,'dur']],[[5,'dur'],[0,'dur']],[[2,'moll'],[7,'dur']],[[7,'dur'],[0,'dur']],[[4,'moll'],[0,'dur']],[[0,'dur'],[9,'moll']],[[11,'moll'],[4,'moll']],[[4,'moll'],[7,'dur']]];
+const minMove=(prev,r,t)=>{let best=99,list=[];
+  for(let inv=0;inv<CTYPE[t].iv.length;inv++)for(const sh of [-24,-12,0,12,24]){const n=chNotes(r,t,inv).map(x=>x+sh);if(n[0]<55||n[n.length-1]>84)continue;list.push(n)}
+  list.forEach(n=>{const d=n.reduce((a,x,i)=>a+Math.abs(x-prev[i]),0);best=Math.min(best,d)});return best};
+const genWechsel=()=>{const [a,b]=rnd(WPAIRS);
+  return{stages:[{prompt:`Spiele <b>${chFull(a[0],a[1])}</b> (beliebige Lage)`,need:3,ok:p=>samePcs(p,a[0],a[1]),answer:tonesTxt(chNotes(a[0],a[1])),sol:chNotes(a[0],a[1])},
+   {prompt:`Jetzt <b>${chFull(b[0],b[1])}</b>: Wähle die Lage so, dass deine Hand <b>möglichst wenig wandert</b> (nahe beieinander)`,need:3,
+    ok:(p,prev)=>!samePcs(p,b[0],b[1])?false:(p.reduce((s,x,i)=>s+Math.abs(x-prev[i]),0)<=minMove(prev,b[0],b[1])?true:'Das geht noch näher zusammen.'),
+    answer:'der Akkord mit der kleinsten Bewegung (meist eine Umkehrung)'}]}};
+const gen7=()=>{const r=rnd([2,7,8,0,5]);return{stages:[{prompt:`Spiele <b>${chName(r,'dom7')}</b> (Dur-Akkord plus kleine Septime), Grundstellung`,need:4,
+  ok:p=>samePcs(p,r,'dom7')&&p[0]%12===r,answer:tonesTxt(chNotes(r,'dom7')),sol:chNotes(r,'dom7')}]}};
+const genSongCh=chs=>()=>{const c=rnd(chs),k=CTYPE[c.t].iv.length;
+  return{stages:[{prompt:`Spiele <b>${c.c}</b> (beliebige Lage, ${k} Töne)`,need:k,ok:p=>samePcs(p,c.r,c.t),answer:tonesTxt(chNotes(c.r,c.t))+' (oder Umkehrung)',sol:chNotes(c.r,c.t)}]}};
+
+/* Baukasten: Grundton + Art (+ Umkehrung) wählen, Tasten werden gezeigt */
+function baukasten(withInv){
+  let r=0,t='dur',inv=0;
+  const card=html(`<div class="card"><h3>${withInv?'Umkehrungen ausprobieren':'Dreiklang-Baukasten'}</h3>
+   <div class="small muted">Grundton</div><div class="chips br"></div><div class="small muted" style="margin-top:8px">Art</div><div class="chips bt"></div>
+   ${withInv?'<div class="small muted" style="margin-top:8px">Lage</div><div class="chips bi"></div>':''}
+   <div class="bx" style="margin-top:10px"></div><div class="small bd" style="margin:8px 0"></div><div class="row"><button class="btn" data-a="h">▶ Akkord hören</button><button class="btn sec" data-a="a">▶ nacheinander</button></div></div>`);
+  const types=withInv?['dur','moll']:['dur','moll','dim','aug'];
+  const draw=()=>{
+    $('.br',card).innerHTML=CROOT.map((n,i)=>`<span class="pill ${i===r?'on':''}" data-r="${i}">${n}</span>`).join('');
+    $('.bt',card).innerHTML=types.map(x=>`<span class="pill ${x===t?'on':''}" data-t="${x}">${CTYPE[x].txt}</span>`).join('');
+    if(withInv)$('.bi',card).innerHTML=[0,1,2].map(k=>`<span class="pill ${k===inv?'on':''}" data-i="${k}">${invTxt(k)}</span>`).join('');
+    const n=chNotes(r,t,inv),kb=keyboard({},55,84),mp={};
+    const role=m=>CTYPE[t].iv.indexOf(((m-60-r)%12+12)%12);
+    n.forEach(m=>mp[m]=AKCOL[role(m)]);kb.paint(mp);$('.bx',card).innerHTML='';$('.bx',card).append(kb.el);
+    const base=chNotes(r,t,0);
+    $('.bd',card).innerHTML=`<b>${chFull(r,t)}</b> · klingt ${CTYPE[t].feel}<br>`+
+      `<span style="color:${AKCOL[0]};font-weight:700">1. Ton ${nameOf(base[0])}</span> → <b>+${CTYPE[t].steps[0]} Tasten</b> → <span style="color:${AKCOL[1]};font-weight:700">2. Ton ${nameOf(base[1])}</span> → <b>+${CTYPE[t].steps[1]} Tasten</b> → <span style="color:${AKCOL[2]};font-weight:700">3. Ton ${nameOf(base[2])}</span>`+
+      (withInv?`<br>${invTxt(inv)}: von unten nach oben <b>${tonesTxt(n)}</b>`:'')};
+  card.onclick=e=>{const d=e.target.dataset,el=e.target.closest('[data-r],[data-t],[data-i]');
+    if(el){const x=el.dataset;if(x.r!=null)r=+x.r;if(x.t)t=x.t;if(x.i!=null)inv=+x.i;draw();return}
+    if(d.a==='h'||d.a==='a'){Eng.ensure();const c=Eng.ctx.currentTime+.05;chNotes(r,t,inv).forEach((m,i)=>Eng.tone(c+(d.a==='a'?i*.5:0),m,1.4,.6))}};
+  draw();return card}
+
+let AKT='ein',AKS=null;
 function akkordProjekt(m){
-  S.akk=S.akk||{};
-  m.append(html(`<div class="card"><h2>🎸 Akkordprojekt</h2><p class="muted" style="margin:0">Lerne zuerst die Akkorde. Hake ab, welche du schon kannst. Unten siehst du dann Lieder, die du mit diesen Akkorden begleiten kannst. Mit dem Metronom übst du im Tempo des Lieds.</p></div>`));
-  const box=html('<div></div>');m.append(box);
-  const draw=()=>{box.innerHTML='';
-    box.append(html('<h3 style="margin:14px 4px 6px">1 · Akkorde lernen</h3>'));
-    AK_ORDER.forEach(c=>{
-      const notes=AK_CH[c],kb=keyboard({},57,76),on=!!S.akk[c];
-      const paint=()=>{const mp={};notes.forEach(n=>mp[n]='#a5b4fc');kb.paint(mp)};paint();
-      const card=html(`<div class="card"><div class="row sp"><h3 style="margin:0">${c}</h3><span class="pill ${on?'on':''}" data-a="k">${on?'✓ kann ich':'kann ich noch nicht'}</span></div>
-        <p class="small muted" style="margin:6px 0">Tasten: <b>${notes.map(nameOf).join(' – ')}</b> (zusammen drücken)</p><div class="akb"></div><div class="row" style="margin-top:8px"><button class="btn sec" data-a="h">▶ Akkord hören</button></div></div>`);
-      $('.akb',card).append(kb.el);
-      card.onclick=e=>{const a=e.target.dataset.a;
-        if(a==='h'){Eng.ensure();const t=Eng.ctx.currentTime+.05;notes.forEach(n=>Eng.tone(t,n,1.4,.6))}
-        if(a==='k'){S.akk[c]=!S.akk[c];save();draw()}};
-      box.append(card)});
-    box.append(html('<h3 style="margin:18px 4px 6px">2 · Lieder mit deinen Akkorden</h3>'));
-    AK_SONGS.forEach(sg=>{
-      const ok=sg.chords.every(c=>S.akk[c]),miss=sg.chords.filter(c=>!S.akk[c]);
-      const card=html(`<div class="card ${ok?'':'locked'}" style="${ok?'':'opacity:.75'}"><div class="row sp"><div><h3 style="margin:0">${sg.title}</h3><div class="small muted">${sg.artist} · ${sg.key} · ${sg.bpm} BPM</div></div>
-        <span class="tag">${ok?'✓ spielbar':'noch fehlt: '+miss.join(', ')}</span></div>
-        <p style="margin:8px 0 4px"><b>Akkorde:</b> ${sg.chords.map(c=>`<span class="pill ${S.akk[c]?'on':''}">${c}</span>`).join(' ')}</p>
-        ${sg.form.map(f=>`<div class="small"><b>${f[0]}:</b> ${f[1]}</div>`).join('')}
-        <p class="small muted" style="margin:8px 0 0"><b>Rhythmus:</b> ${sg.rhythm}</p><div class="mt"></div></div>`);
-      $('.mt',card).append(metroCard(sg.bpb,'Metronom ('+sg.bpm+' BPM)',sg.bpm));
-      box.append(card)})};
-  draw()}
+  const redraw=()=>{m.innerHTML='';akkordProjekt(m)};
+  m.append(html(`<div class="card"><h2>🎸 Akkordprojekt</h2><p class="muted" style="margin:0">Du lernst, wie Akkorde gebaut sind, spielst sie in Grundstellung und in Umkehrungen und begleitest dann Lieder. Reihenfolge: ① Dreiklänge ② Umkehrungen ③ Lieder.</p></div>`));
+  const tabs=html(`<div class="row hide-b" style="margin:4px 0 10px"><div class="seg">${[['ein','① Dreiklänge'],['inv','② Umkehrungen'],['lieder','③ Lieder']].map(x=>`<button data-t="${x[0]}" class="${AKT===x[0]?'on':''}">${x[1]}</button>`).join('')}</div></div>`);
+  tabs.onclick=e=>{const b=e.target.closest('button');if(b){AKT=b.dataset.t;AKS=null;Eng.stop();redraw();window.scrollTo(0,0)}};
+  m.append(tabs);
+  if(AKT==='ein')akEin(m,redraw);else if(AKT==='inv')akInv(m,redraw);else akLieder(m,redraw)}
+
+function akEin(m,redraw){
+  const ex=(a,b)=>tonesTxt(chNotes(a,b));
+  m.append(html(`<div class="card"><h3>Was ist ein Dreiklang?</h3><p>Ein <b>Akkord</b> sind mehrere Töne, die zusammen klingen. Ein <b>Dreiklang</b> hat genau <b>3 Töne</b>: den <b>1. Ton</b> (Grundton, er gibt dem Akkord den Namen), den <b>2. Ton</b> und den <b>3. Ton</b>.</p>
+   <p style="margin:0">Du kommst von einem Ton zum nächsten, indem du Tasten weiterzählst. <b>Jede Taste zählt</b>, auch die schwarzen. Von einer Taste zur nächsten ist ein <b>Halbtonschritt</b>.</p></div>`));
+  m.append(html(`<div class="card"><h3>Vier Arten von Dreiklängen</h3><table class="t"><tr><th>Art</th><th>1. → 2. Ton</th><th>2. → 3. Ton</th><th>Beispiel mit c1</th><th>Klang</th></tr>
+   ${['dur','moll','dim','aug'].map(x=>`<tr><td><b>${CTYPE[x].txt}</b></td><td>+${CTYPE[x].steps[0]}</td><td>+${CTYPE[x].steps[1]}</td><td>${ex(0,x)}</td><td>${CTYPE[x].feel}</td></tr>`).join('')}</table>
+   <p class="small muted" style="margin:10px 0 0"><b>Dur</b> und <b>Moll</b> brauchst du in fast allen Liedern. <b>Vermindert</b> und <b>übermässig</b> kommen selten vor, du sollst sie aber kennen. Merke: Der Unterschied zwischen Dur und Moll ist nur der 2. Ton (Dur +4, Moll +3).</p></div>`));
+  m.append(baukasten(false));
+  m.append(html(`<div class="card"><h3>Septakkord (4 Töne)</h3><p style="margin:0">In einigen Liedern steht eine <b>7</b> (z. B. D7, G7, Ab7). Das ist ein Dur-Dreiklang plus ein 4. Ton: Von der Quinte (3. Ton) zählst du noch <b>+3 Tasten</b> weiter. D7 = ${ex(2,'dom7')} (+4, +3, +3). Er klingt spannungsvoll, als wolle er zum nächsten Akkord weitergehen.</p></div>`));
+  const info=html('<h3 style="margin:18px 4px 6px">Übungen</h3>');m.append(info);
+  m.append(html('<p class="small muted" style="margin:0 4px 8px">Du bekommst einen Akkord genannt und drückst die Tasten auf dem Piano (alle Tasten des Akkords, Grundton ganz unten). Die App sagt dir sofort, ob es stimmt.</p>'));
+  m.append(chordQuiz({id:'ak_q1',title:'Übung 1: Dur und Moll',desc:'Grundtöne auf weissen Tasten. Grundstellung.',gen:genGrund(WROOT,['dur','moll']),onDone:redraw}));
+  m.append(chordQuiz({id:'ak_q2',title:'Übung 2: alle vier Arten',desc:'Dur, Moll, vermindert, übermässig mit beliebigen Grundtönen (auch schwarze Tasten).',gen:genGrund([0,1,2,3,4,5,6,7,8,9,10,11],['dur','moll','dim','aug']),onDone:redraw}));
+  m.append(chordQuiz({id:'ak_q3',title:'Übung 3: Septakkorde',desc:'Dur-Akkord plus kleine Septime: 4 Töne.',gen:gen7,onDone:redraw}));
+  const ok=['ak_q1','ak_q2','ak_q3'].every(akPass);
+  m.append(html(`<div class="card" style="${ok?'':'opacity:.8'}"><b>${ok?'✓ Alle Übungen geschafft.':'Ziel: alle drei Übungen mit mindestens '+CONFIG.pass+' %.'}</b> ${ok?'Weiter mit ② Umkehrungen.':''}</div>`));
+}
+
+function akInv(m,redraw){
+  m.append(html(`<div class="card"><h3>Grundstellung und Umkehrung</h3><p>In der <b>Grundstellung</b> liegt der <b>Grundton ganz unten</b>: z. B. C-Dur = c1 – e1 – g1.</p>
+   <p>Bei einer <b>Umkehrung</b> hat der Akkord dieselben Töne, aber der unterste Ton wandert eine Oktave nach oben:<br>
+   <b>1. Umkehrung</b>: Der Grundton wandert nach oben (e1 – g1 – c2).<br><b>2. Umkehrung</b>: Auch der 2. Ton wandert nach oben (g1 – c2 – e2).</p>
+   <p style="margin:0"><b>Warum?</b> Beim Wechseln von einem Akkord zum nächsten soll deine Hand <b>möglichst ruhig bleiben</b>. Mit Umkehrungen liegen die Töne nahe beieinander, du musst nicht springen.</p></div>`));
+  m.append(baukasten(true));
+  m.append(html('<h3 style="margin:18px 4px 6px">Übungen</h3>'));
+  m.append(chordQuiz({id:'ak_q4',title:'Übung 4: Umkehrungen',desc:'Grundstellung, 1. oder 2. Umkehrung: Auf den untersten Ton kommt es an.',gen:genInv,onDone:redraw}));
+  m.append(chordQuiz({id:'ak_q5',title:'Übung 5: Akkordwechsel – nahe beieinander',desc:'Zwei Akkorde nacheinander. Beim zweiten gilt: möglichst wenig bewegen.',gen:genWechsel,n:6,onDone:redraw}));
+  const ok=['ak_q4','ak_q5'].every(akPass);
+  m.append(html(`<div class="card"><b>${ok?'✓ Geschafft. Weiter mit ③ Lieder.':'Ziel: beide Übungen mit mindestens '+CONFIG.pass+' %.'}</b></div>`));
+}
+
+/* ----- Lieder ----- */
+const CHD=(c,r,t,n)=>({c,r,t,n});
+const SG=(ch,bass,d)=>({ch,bass,d});
+const AKSONGS=[
+ {id:'himalaya',title:'Himalaya',lvl:1,key:'G-Dur',bpm:90,lh:'opt',pat:'eighth',
+  rhythm:'<b>Achtelnoten</b>: Die rechte Hand spielt den Akkord auf jedem Achtel («Laufe, Laufe, Laufe, Laufe»), also 8 Anschläge pro Takt. Die linke Hand (für Fortgeschrittene) spielt den Grundton als ganze Note.',
+  bars:[[SG(CHD('G',7,'dur',[62,67,71]),43,4)],[SG(CHD('Hm',11,'moll',[62,66,71]),47,4)],[SG(CHD('Em',4,'moll',[64,67,71]),52,4)],[SG(CHD('C',0,'dur',[64,67,72]),48,4)]]},
+ {id:'shape',title:'Shape of You',lvl:2,key:'H-Moll',bpm:96,lh:'opt',pat:'seg',
+  rhythm:'<b>Zwei Akkorde pro Takt</b>: jeder Akkord eine halbe Note («sta-ah»). Die linke Hand (für Fortgeschrittene) spielt den Grundton als halbe Note.',
+  bars:[[SG(CHD('Hm',11,'moll',[62,66,71]),47,2),SG(CHD('Em',4,'moll',[64,67,71]),52,2)],[SG(CHD('G',7,'dur',[62,67,71]),43,2),SG(CHD('A',9,'dur',[61,64,69]),45,2)]]},
+ {id:'havana',title:'Havana',lvl:3,key:'G-Moll',bpm:105,lh:'opt',pat:'trin',
+  rhythm:'<b>Rhythmus (Vorschlag, wird noch geprüft)</b>: «Trinidad, Trinidad, to-go» (3 + 3 + 2 Achtel), der Akkord wird dreimal pro Takt angeschlagen. Die linke Hand (für Fortgeschrittene) spielt den Grundton als ganze Note.',
+  bars:[[SG(CHD('Gm',7,'moll',[62,67,70]),43,4)],[SG(CHD('Eb',3,'dur',[63,67,70]),51,4)],[SG(CHD('D7',2,'dom7',[62,66,69,72]),50,4)],[SG(CHD('D7',2,'dom7',[62,66,69,72]),50,4)]]},
+ {id:'jack',title:'Hit the Road Jack',lvl:3,key:'C-Moll',bpm:87,lh:'req',swing:1,pat:'jack',
+  rhythm:'<b>Swing</b> (Original 173 BPM, zum Üben das halbe Tempo): <b>Linke Hand</b> (Pflicht): halbe Noten, Stufe für Stufe nach unten: C – Bb – Ab – G. <b>Rechte Hand</b>: kommt auf den <b>Offbeat</b> (Schlag 2 und 4). Im 2. Takt: punktierte Viertel mit Haltebogen zur Achtel, dann zwei Achtel. Die rechte Hand spielt 3-Ton-Akkorde ohne Grundton (den spielt die linke Hand).'}
+];
+const AKL=['','einfach','mittel','schwierig'];
+const JCm=CHD('Cm',0,'moll',[60,63,67]),JAb=CHD('Ab7',8,'dom7',[60,63,66]),JG=CHD('G7',7,'dom7',[59,62,65]);
+/* Takt: segs [{ch,b,d}] (Anzeige), rh [[b,d,Akkord]], bass [[b,d,Ton]] */
+function akBars(sg){
+  const mkSegs=b=>{let t=0;return b.map(s=>{const o={ch:s.ch,bass:s.bass,b:t,d:s.d};t+=s.d;return o})};
+  if(sg.pat==='jack'){
+    const b1={segs:[{ch:JCm,b:0,d:4}],rh:[[1,1,JCm],[3,1,JCm]],bass:[[0,2,48],[2,2,46]]};
+    const b2={segs:[{ch:JAb,b:0,d:2},{ch:JG,b:2,d:2}],rh:[[1,2,JAb],[3,.5,JG],[3.5,.5,JG]],bass:[[0,2,44],[2,2,43]]};
+    const b4={segs:[{ch:JAb,b:0,d:2},{ch:JG,b:2,d:2}],rh:[[1,1,JAb],[2.5,.5,JG],[3,.5,JG],[3.5,.5,JG]],bass:[[0,2,44],[2,2,43]]};
+    return [b1,b2,b1,b4]}
+  return sg.bars.map(b=>{const segs=mkSegs(b),at=t=>segs.filter(s=>s.b<=t+1e-6).pop().ch;let rh=[];
+    if(sg.pat==='seg')rh=segs.map(s=>[s.b,s.d,s.ch]);
+    else if(sg.pat==='eighth')for(let i=0;i<8;i++)rh.push([i*.5,.5,at(i*.5)]);
+    else rh=[[0,1.5,at(0)],[1.5,1.5,at(1.5)],[3,1,at(3)]];
+    return{segs,rh,bass:segs.map(s=>[s.b,s.d,s.bass])}})}
+const invOf=ch=>{const iv=CTYPE[ch.t].iv,k=iv.findIndex(i=>(ch.r+i)%12===ch.n[0]%12);return ch.n.length<iv.length?'ohne Grundton (den spielt die linke Hand)':invTxt(k)};
+
+function akLieder(m,redraw){
+  if(AKS){akSong(m,AKSONGS.find(s=>s.id===AKS),()=>{AKS=null;redraw()});return}
+  m.append(html(`<div class="card"><p class="muted" style="margin:0">Die Lieder sind nach Schwierigkeit sortiert. Du siehst, wie die Akkorde gehen, kannst sie dir vorspielen lassen und mit Metronom mitspielen. Du spielst die Akkorde nahe beieinander (Umkehrungen). Tipp: Übe zuerst ① Dreiklänge und ② Umkehrungen.</p></div>`));
+  [1,2,3].forEach(l=>{const L=AKSONGS.filter(s=>s.lvl===l);if(!L.length)return;
+    m.append(html(`<h3 style="margin:16px 4px 6px">${AKL[l][0].toUpperCase()+AKL[l].slice(1)}</h3>`));
+    L.forEach(sg=>{const bars=akBars(sg),names=[...new Set(bars.flatMap(b=>b.segs.map(x=>x.ch.c)))];
+      const c=html(`<div class="card song"><div class="sn" style="font-size:30px;background:#eef0ff">${['','🟢','🟡','🔴'][sg.lvl]}</div><div style="flex:1;min-width:0"><h3>${sg.title}</h3><div class="small muted">Tonart ${sg.key} · ${sg.bpm} BPM${sg.lh==='req'?' · linke Hand nötig':''}${sg.swing?' · Swing':''}</div>
+        <div style="margin-top:6px">${names.map(n=>`<span class="pill" style="min-height:30px;padding:2px 10px">${n}</span>`).join(' ')}</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
+      c.onclick=()=>{AKS=sg.id;redraw();window.scrollTo(0,0)};m.append(c)})})}
+
+function akSong(m,sg,back){
+  const bars=akBars(sg),chs=[];bars.forEach(b=>b.segs.forEach(x=>{if(!chs.some(c=>c.c===x.ch.c))chs.push(x.ch)}));
+  const bt=html('<div class="row hide-b"><button class="btn sec" data-a="b">‹ Alle Lieder</button></div>');bt.onclick=e=>{if(e.target.dataset.a==='b')back()};m.append(bt);
+  const segTxt=b=>b.segs.map(x=>x.ch.c).join(' ');
+  m.append(html(`<div class="card"><h2>${sg.title}</h2><div class="muted">Tonart ${sg.key} · Schwierigkeit: ${AKL[sg.lvl]} · Tempo ${sg.bpm} BPM${sg.id==='jack'?' (Original 173 BPM, halbes Tempo)':''}</div>
+    <p style="margin:10px 0 0"><b>Akkordfolge</b> (ein Takt = 4 Schläge, wird wiederholt): ${bars.map(b=>`<span class="pill" style="min-height:30px;padding:2px 10px">${segTxt(b)}</span>`).join(' → ')}</p>
+    <p style="margin:8px 0 0"><b>Rhythmus:</b> ${sg.rhythm}</p></div>`));
+  m.append(html('<h3 style="margin:16px 4px 6px">① Die Akkorde</h3>'));
+  chs.forEach(ch=>{const lh=[];bars.forEach(b=>b.segs.filter(s=>s.ch.c===ch.c).forEach(s=>b.bass.forEach(x=>{if(x[0]>=s.b-1e-6&&x[0]<s.b+s.d-1e-6&&!lh.includes(x[2]))lh.push(x[2])})));
+    const kb=keyboard({},Math.min(...ch.n,...lh)-2,Math.max(...ch.n)+2),mp={};ch.n.forEach(n=>mp[n]=AKCOL[0]);lh.forEach(n=>mp[n]=AKCOL[1]);kb.paint(mp);
+    const card=html(`<div class="card"><div class="row sp"><h3 style="margin:0">${ch.c}</h3><span class="tag">${invOf(ch)}</span></div>
+      <p class="small" style="margin:6px 0">Rechte Hand (blau): <b>${tonesTxt(ch.n)}</b> · Linke Hand (grün, Bass): <b>${lh.map(n=>CROOT[n%12]).join(', ')}</b>${sg.lh==='opt'?' <span class="muted">(für Fortgeschrittene)</span>':''}</p><div class="kk"></div><div class="row" style="margin-top:8px"><button class="btn sec">▶ hören</button></div></div>`);
+    $('.kk',card).append(kb.el);$('button',card).onclick=()=>{Eng.ensure();const t=Eng.ctx.currentTime+.05;ch.n.forEach(n=>Eng.tone(t,n,1.4,.6));lh.slice(0,1).forEach(n=>Eng.tone(t,n,1.4,.7))};
+    m.append(card)});
+  m.append(html('<h3 style="margin:16px 4px 6px">② Akkorde üben</h3>'));
+  m.append(chordQuiz({id:'ak_s_'+sg.id,title:'Akkord nennen und drücken',desc:'Du bekommst einen Akkord aus dem Lied genannt und drückst ihn (beliebige Lage).',gen:genSongCh(chs),n:6}));
+  m.append(html('<h3 style="margin:16px 4px 6px">③ Akkordfolge spielen</h3>'));
+  const lhReq=sg.lh==='req',sw=b=>sg.swing&&Math.abs(b%1-.5)<1e-6?b+1/6:b;
+  const chart=html(`<div class="card"><div class="small muted" style="margin-bottom:6px">Tippe auf Start. Nach dem Einzähler läuft die Akkordfolge, bis du auf Stopp tippst. Die Akkorde leuchten auf, die Tasten werden gezeigt. Mit den Schaltern schaltest du eine Hand stumm und spielst sie selbst.</div><div class="row stick"><button class="btn" data-a="go">▶ Start</button></div>
+    <div class="ctl"></div><div class="status small" style="margin:6px 0;min-height:20px"></div>
+    <div class="ach" style="display:grid;grid-template-columns:repeat(${Math.min(4,bars.length)},1fr);gap:8px;margin:6px 0">${bars.map((b,i)=>`<div class="acell" data-i="${i}" style="border:2px solid var(--line);border-radius:10px;padding:6px;background:#fff"><div class="small muted">Takt ${i+1}</div><div style="display:flex;gap:2px;margin-top:4px">${b.segs.map(s=>`<div class="aseg" style="flex:${s.d};border-radius:6px;padding:6px 2px;text-align:center;font-weight:700;background:#f4f5fb">${s.ch.c}</div>`).join('')}</div></div>`).join('')}</div>
+    <div class="kbp"></div>${sg.swing?'<div class="row" style="margin-top:8px"><button class="btn sec" data-a="s0">▶ Achtel gerade</button><button class="btn sec" data-a="s1">▶ Achtel swing</button></div>':''}</div>`);
+  const ctl=controls({bpm:sg.bpm,max:140,toggles:[['click','Klick',true],['rh','Rechte Hand hören',true],['lh','Linke Hand '+(lhReq?'hören':'(Bass) mitspielen'),lhReq],['keys','Tasten zeigen',true]],onChange:()=>kb.paint({})});
+  $('.ctl',chart).append(ctl.el);
+  const allN=bars.flatMap(b=>[...b.rh.flatMap(x=>x[2].n),...b.bass.map(x=>x[2])]);
+  const kb=keyboard({},Math.min(...allN)-2,Math.max(...allN)+2);$('.kbp',chart).append(kb.el);
+  const evOf=(v,id)=>{const b=bars[+id.slice(1)];return v===0?b.rh.flatMap(([t,d,ch])=>ch.n.map(p=>({b:sw(t),d,p}))):b.bass.map(([t,d,p])=>({b:t,d,p}))};
+  const ids=[];for(let r=0;r<60;r++)bars.forEach((_,i)=>ids.push('b'+i));   // läuft «endlos», bis Stopp
+  const cells=[...chart.querySelectorAll('.acell')],status=$('.status',chart),go=$('[data-a=go]',chart);let on=false;
+  const clear=()=>{cells.forEach(c=>{c.style.borderColor='var(--line)';c.querySelectorAll('.aseg').forEach(s=>s.style.background='#f4f5fb')});kb.paint({})};
+  chart.onclick=e=>{const a=e.target.dataset.a;
+    if(a==='go'){if(on){Eng.stop();return}Eng.ensure();on=true;go.textContent='■ Stopp';
+      Eng.play({bpm:ctl.st.bpm,bpb:4,seq:ids,events:evOf,audible:[ctl.st.rh,ctl.st.lh],click:ctl.st.click,
+        onFrame:f=>{if(f.counting){status.textContent='Einzähler: '+f.countBeat;return}
+          const bi=f.slot%bars.length,b=bars[bi];status.textContent='Takt '+(bi+1)+' von '+bars.length+' · Schlag '+(Math.floor(f.bb)+1);
+          cells.forEach((c,i)=>{c.style.borderColor=i===bi?'var(--ind)':'var(--line)';c.querySelectorAll('.aseg').forEach((s,j)=>{const sgm=b.segs[j];s.style.background=(i===bi&&f.bb>=sgm.b&&f.bb<sgm.b+sgm.d)?'#c7d2fe':'#f4f5fb'})});
+          if(ctl.st.keys){const mp={},seg=b.segs.filter(s=>s.b<=f.bb+1e-6).pop();seg.ch.n.forEach(n=>mp[n]=AKCOL[0]);
+            if(lhReq||ctl.st.lh){const bs=b.bass.filter(x=>x[0]<=f.bb+1e-6).pop();if(bs)mp[bs[2]]=AKCOL[1]}kb.paint(mp)}else kb.paint({})},
+        onEnd:()=>{on=false;go.textContent='▶ Start';status.textContent='';clear()}})}
+    if(a==='s0'||a==='s1'){Eng.ensure();Eng.stop();const spb=60/sg.bpm,t0=Eng.ctx.currentTime+.1;
+      for(let k=0;k<4;k++){Eng.click(t0+k*spb,k===0);Eng.tone(t0+k*spb,67,.3,.7);Eng.tone(t0+k*spb+spb*(a==='s1'?2/3:.5),67,.2,.6)}}};
+  m.append(chart);
+}
 
 let CUR=null,view='home';
 const doneK=n=>CUR.id+'_'+n,isDone=n=>!!S.done[doneK(n)];
@@ -955,7 +1141,7 @@ function render(){
         <div class="row" style="margin-top:8px;gap:10px"><span class="dots5">${[1,2,3,4].map(n=>`<i class="${S.done[s.id+'_'+n]?'on':''}"></i>`).join('')}</span><span class="small muted">${p} von 4 Levels</span><span class="tag">Schwierigkeit ${'●'.repeat(s.diff)+'○'.repeat(3-s.diff)}</span></div></div>
         <div class="st"><span style="color:var(--ind)">${p===4?'Geschafft ✓':p?'Weiter ›':'Starten ›'}</span></div></div>`);
       c.onclick=()=>go('song',s.id);m.append(c)});
-    const ak=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">🎸</div><div style="flex:1;min-width:0"><h3>Akkordprojekt</h3><div class="small muted">Akkorde lernen und Lieder damit begleiten</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
+    const ak=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">🎸</div><div style="flex:1;min-width:0"><h3>Akkordprojekt</h3><div class="small muted">Dreiklänge, Umkehrungen und Lieder begleiten</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
     ak.onclick=()=>go('akk');m.append(ak);
     const rh=html(`<div class="card lv"><div class="ic">🥁</div><div><h3>Puls und Rhythmus</h3><div class="small muted">Rhythmussprache, Notenwerte, Zufallsrhythmen (4/4 und 3/4)</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
     rh.onclick=()=>go('rhy');m.append(rh);
