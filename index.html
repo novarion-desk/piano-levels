@@ -106,7 +106,7 @@ body.beamer .score svg .ch{font-size:20px}
 </style>
 </head>
 <body>
-<header class="top"><button id="back" style="display:none">‹ Übersicht</button><img src="icon.svg" alt="" width="34" height="34" id="logo" style="border-radius:9px"><h1 id="ttl">Piano Levels</h1><button id="miniB" aria-label="Mini-Piano">🎹 Mini-Piano</button><button id="demoB" aria-label="Demo-Modus">Demo</button><button id="cfgb" aria-label="Einstellungen">⚙︎</button></header>
+<header class="top"><button id="back" style="display:none">‹ Übersicht</button><img src="icon.svg" alt="" width="34" height="34" id="logo" style="border-radius:9px"><h1 id="ttl">Piano Levels</h1><button id="miniB" aria-label="Mini-Piano">🎹 Mini-Piano</button><button id="demoB" aria-label="Demo-Modus">Demo</button><button id="fbB" aria-label="Feedback" title="Feedback: Fehler melden, Wünsche äussern" onclick="openAppFeedback()">💬</button><button id="cfgb" aria-label="Einstellungen">⚙︎</button></header>
 <main id="main"></main>
 
 <script>
@@ -1181,5 +1181,9 @@ $('#cfgb').onclick=()=>{
 render();
 </script>
 <script>if('serviceWorker' in navigator&&location.protocol.startsWith('http')){navigator.serviceWorker.register('sw.js').catch(function(){});}</script>
+<script>
+/* Feedback: öffnet das anonyme Tally-Formular (App, Version und Gerät werden mitgegeben, keine Personendaten) */
+function openAppFeedback(){var q=new URLSearchParams({app:'pianolevels',version:'2026-11-21',geraet:(navigator.userAgent||'').slice(0,120)});window.open('https://tally.so/r/GeR9re?'+q.toString(),'_blank','noopener');}
+</script>
 </body>
 </html>

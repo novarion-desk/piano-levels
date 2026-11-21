@@ -26,3 +26,6 @@ firebase deploy --only hosting
 ## Lieder und Akkordprojekt
 - Lieder (in dieser Reihenfolge): Inhibitions, Alles von mir, Granate, Scarborough Fair (3/4-Takt). Jedes Lied hat ein Emoji (`em` im Lied-Objekt).
 - Akkordprojekt (`view 'akk'`): ① Einführung Dreiklänge (Dur, Moll, vermindert, übermässig, Septakkord; Baukasten und Übungen), ② Grundstellung und Umkehrungen (Übungen, Akkordwechsel nahe beieinander), ③ Lieder nach Schwierigkeit (`AKSONGS`: Himalaya, Shape of You, Havana, Hit the Road Jack) mit Griffen, Akkord-Übung und Begleitung mit Metronom (rechte und linke Hand einzeln stummschaltbar). Übungen: Akkord wird genannt, auf dem Piano drücken, die App sagt richtig/falsch. Alles ist frei zugänglich (keine Sperren, Ziel 70 %). Tasten werden beim Drücken eingefärbt (grün richtig, rot falsch, gelb fehlt). Begleitung läuft in Schleife bis Stopp: Himalaya 90 BPM (Achtel), Shape of You 96 BPM (2 Akkorde pro Takt), Havana 105 BPM (Rhythmus Platzhalter), Hit the Road Jack 87 BPM (halbes Tempo von 173, Swing; linke Hand Halbe C–B–As–G, rechte Hand auf dem Off-Beat).
+
+## Feedback
+Der Knopf «💬 Feedback» öffnet ein externes, anonymes Formular bei Tally (Fehler, Wünsche, Inhalte). Nur dann werden Angaben gesendet – zusammen mit App-Name, Version und Gerätetyp. Namen werden nicht abgefragt.
