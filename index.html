@@ -102,11 +102,26 @@ body.beamer .score svg .ch{font-size:20px}
 .lesson .nr{width:38px;height:38px;border-radius:50%;background:var(--ind);color:#fff;font-weight:800;display:grid;place-items:center;flex:none}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
 .dots5{display:inline-flex;gap:5px}.dots5 i{width:12px;height:12px;border-radius:50%;background:#d9dcf0;display:block}.dots5 i.on{background:var(--ok)}
+#printArea{display:none}
+@media print{
+ @page{size:A4;margin:12mm}
+ body.printing>*:not(#printArea){display:none!important}
+ #printArea{display:block!important}
+ #prDlg{display:none!important}
+ body{background:#fff!important;color:#000}
+ header.top,#toast,.toast,button,input,select,textarea,.hide-b,.seg,.dots,.mc,.pad,.noprint,#demoB,#fbB,#cfgb,#miniB,#prB,.row,.kb,.keys{display:none!important}
+ .card,.lesson{box-shadow:none!important;border:1px solid #bbb!important;background:#fff!important;break-inside:avoid;page-break-inside:avoid}
+ .lesson .lb{display:block!important}
+ .lesson .lh>div:last-child{display:none!important}
+ .card:empty,.card.ex .body>.card:empty{display:none!important}
+ svg{max-width:100%;height:auto}
+ main{padding:0!important}
+}
 @media (max-width:640px){.pad{min-height:110px}input[type=range]{width:150px}}
 </style>
 </head>
 <body>
-<header class="top"><button id="back" style="display:none">‹ Übersicht</button><img src="icon.svg" alt="" width="34" height="34" id="logo" style="border-radius:9px"><h1 id="ttl">Piano Levels</h1><button id="miniB" aria-label="Mini-Piano">🎹 Mini-Piano</button><button id="demoB" aria-label="Demo-Modus">Demo</button><button id="fbB" aria-label="Feedback" title="Feedback: Fehler melden, Wünsche äussern" onclick="openAppFeedback()">💬</button><button id="cfgb" aria-label="Einstellungen">⚙︎</button></header>
+<header class="top"><button id="back" style="display:none">‹ Übersicht</button><img src="icon.svg" alt="" width="34" height="34" id="logo" style="border-radius:9px"><h1 id="ttl">Piano Levels</h1><button id="prB" aria-label="Drucken" title="Diese Seite drucken (Noten und Rhythmen zum analogen Üben)" style="display:none">🖨 Drucken</button><button id="miniB" aria-label="Mini-Piano">🎹 Mini-Piano</button><button id="demoB" aria-label="Demo-Modus">Demo</button><button id="fbB" aria-label="Feedback" title="Feedback: Fehler melden, Wünsche äussern" onclick="openAppFeedback()">💬</button><button id="cfgb" aria-label="Einstellungen">⚙︎</button></header>
 <main id="main"></main>
 
 <script>
@@ -156,9 +171,9 @@ const PAT={
 };
 /* Kurzschreibweise für Takte: S Schritt (Viertel), p Viertelpause, H halbe, h halbe Pause, D punktierte halbe (sta 2 3), W ganze,
    L Laufe (zwei Achtel), U umerenne (vier Sechzehntel), o einzelne Achtel (Hopp), u Achtelpause (und) */
-const TK={S:[[1]],p:[[1,1]],H:[[2]],h:[[2,1]],D:[[3]],d:[[3,1]],W:[[4]],w:[[4,1]],L:[[.5],[.5]],U:[[.25],[.25],[.25],[.25]],o:[[.5]],u:[[.5,1]]};
-const DUR={S:1,p:1,H:2,h:2,D:3,d:3,W:4,w:4,L:1,U:1,o:.5,u:.5};
-function tk(str,p){const ev=[];let b=0;for(const c of str.replace(/\s/g,'')){TK[c].forEach(x=>{ev.push({b,d:x[0],p:x[1]?null:p});b+=x[0]})}return ev}
+const TK={S:[[1]],p:[[1,1]],H:[[2]],h:[[2,1]],D:[[3]],d:[[3,1]],W:[[4]],w:[[4,1]],L:[[.5],[.5]],U:[[.25],[.25],[.25],[.25]],o:[[.5]],u:[[.5,1]],j:[[.75],[.25]],R:[[1/3,0,0,'R'],[1/3],[1/3]],Q:[[1.5]],N:[[.5,0,0,'N'],[.5,0,0,'n'],[.5,0,0,'n']],A:[[3,1,1]],B:[[2,1,1]],C:[[1,1,1]]};
+const DUR={j:1,R:1,Q:1.5,N:1.5,A:3,B:2,C:1,S:1,p:1,H:2,h:2,D:3,d:3,W:4,w:4,L:1,U:1,o:.5,u:.5};
+function tk(str,p){const ev=[];let b=0;for(const c of str.replace(/\s/g,'')){TK[c].forEach(x=>{const e={b:Math.round(b*1e6)/1e6,d:x[0],p:x[1]?null:p};if(x[2])e.hid=1;if(x[3])e.tag=x[3];ev.push(e);b+=x[0]})}return ev}
 /* Zufallstakt aus einem Vorrat von Bausteinen; L/U nur auf ganzen Schlägen */
 function randBar(pool,bpb){
   for(let t=0;t<120;t++){let b=0,s='';
@@ -190,8 +205,12 @@ const VCOL=['#4F46E5','#059669','#d97706'];
 /* ================= Rhythmussprache ================= */
 function wordsOf(evs){const w=[];
   for(let i=0;i<evs.length;i++){const e=evs[i],rest=e.p==null;
-    if(e.cont||e.nw)continue;
+    if(e.cont||e.nw||e.hid)continue;
     if(e.ws){e.ws.forEach(x=>w.push({b:x[0],e:x[1],t:x[2],n:x[3]}));continue}
+    if(!rest&&e.tag==='R'&&evs[i+2]){w.push({b:e.b,e:e.b+1,t:'Triole'});i+=2;continue}
+    if(!rest&&e.tag==='N'&&evs[i+2]){w.push({b:e.b,e:e.b+1.5,t:'Banane'});i+=2;continue}
+    if(!rest&&e.d===.75&&evs[i+1]&&evs[i+1].d===.25&&evs[i+1].p!=null){w.push({b:e.b,e:e.b+1,t:'Hüpfe'});i++;continue}
+    if(!rest&&e.d===1.5){w.push({b:e.b,e:e.b+1.5,t:'Trinidad'});continue}
     if(e.d===2&&!rest){w.push({b:e.b,e:e.b+2,t:'sta-ah'});continue}
     if(e.d>=2){w.push({b:e.b,e:e.b+1,t:rest?'paus':'sta'});for(let k=1;k<e.d;k++)w.push({b:e.b+k,e:e.b+k+1,t:String(k+1),n:1});continue}
     if(e.d===1){w.push({b:e.b,e:e.b+1,t:rest?'paus':'Schritt'});continue}
@@ -230,7 +249,7 @@ function trinBar(){
 /* ================= Notenbild (SVG) ================= */
 function renderScore(o){
   FLAT=!!o.flat;
-  const BPB=o.bpb||4,PER=o.per||4,W=1000,L=o.flat?104:84,RM=8,bw=(W-L-RM)/PER,pad=18,vh=104,top=46,nV=o.voices.length;
+  const BPB=o.bpb||4,TSA=(o.ts||(BPB+'/4')).split('/'),TSN=TSA[0],TSD=TSA[1],PER=o.per||4,W=1000,L=o.flat?104:84,RM=8,bw=(W-L-RM)/PER,pad=18,vh=104,top=46,nV=o.voices.length;
   const root=html('<div class="score"></div>');
   const loc={},svgs=[];
   const X=(bx,b)=>bx+pad+(b/BPB)*bw;   // gleichmässig: Taktende = nächster Taktanfang
@@ -242,7 +261,7 @@ function renderScore(o){
       for(let i=0;i<5;i++)s+=`<line x1="${L-6}" x2="${L+ids.length*bw}" y1="${y0+i*8}" y2="${y0+i*8}" stroke="#333"/>`;
       s+=`<text x="8" y="${y0+27}" font-size="54" class="mus">\u{1D11E}</text>`;
       if(o.flat)s+=`<text x="60" y="${y0+23}" font-size="34" class="mus">♭</text>`;
-      s+=`<text x="${o.flat?86:62}" y="${y0+16}" class="ts">${BPB}</text><text x="${o.flat?86:62}" y="${y0+32}" class="ts">4</text>`;
+      s+=`<text x="${o.flat?86:62}" y="${y0+16}" class="ts">${TSN}</text><text x="${o.flat?86:62}" y="${y0+32}" class="ts">${TSD}</text>`;
       if(o.voiceLabel||nV>1)s+=`<text x="4" y="${y0-21}" font-size="13" font-weight="700" fill="${o.voices[v].color}">${o.voices[v].label}</text>`;
       s+=`<line x1="${L-6}" x2="${L-6}" y1="${y0}" y2="${y0+32}" stroke="#333"/>`;
     }
@@ -270,27 +289,33 @@ function renderScore(o){
           grp.forEach(g=>{const sx=up?g.x+5.6:g.x-5.6;s+=`<line x1="${sx}" x2="${sx}" y1="${yOf(g.st)}" y2="${yB}" stroke="${col}" stroke-width="2"/>`});
           if(grp.length>1){const x1=(up?grp[0].x+5.6:grp[0].x-5.6)-1,x2=(up?grp[grp.length-1].x+5.6:grp[grp.length-1].x-5.6)+1;
             s+=`<line x1="${x1}" x2="${x2}" y1="${yB}" y2="${yB}" stroke="${col}" stroke-width="5"/>`;
-            if(grp[0].d===.25){const y2=up?yB+8:yB-8;s+=`<line x1="${x1}" x2="${x2}" y1="${y2}" y2="${y2}" stroke="${col}" stroke-width="5"/>`}}
+            const y2=up?yB+8:yB-8;
+            if(grp.every(g=>g.d===.25))s+=`<line x1="${x1}" x2="${x2}" y1="${y2}" y2="${y2}" stroke="${col}" stroke-width="5"/>`;
+            else grp.forEach(g=>{if(g.d===.25){const sx=up?g.x+5.6:g.x-5.6;s+=`<line x1="${sx-9}" x2="${sx+1}" y1="${y2}" y2="${y2}" stroke="${col}" stroke-width="5"/>`}});
+            if(grp.length===3&&Math.abs(grp[0].d-1/3)<1e-6)s+=`<text x="${(x1+x2)/2}" y="${up?yB-6:yB+16}" text-anchor="middle" font-size="14" font-style="italic" font-weight="700" fill="${col}">3</text>`}
           else{const g=grp[0],sx=up?g.x+5.6:g.x-5.6;s+=up?`<path d="M${sx} ${yB} q14 8 7 22" fill="none" stroke="${col}" stroke-width="2.4"/>`:`<path d="M${sx} ${yB} q-14 -8 -7 -22" fill="none" stroke="${col}" stroke-width="2.4"/>`}
           grp=[]};
         evs.forEach(e=>{
           const x=X(bx,e.b);
           if(e.p==null){flush();
+            if(e.hid)return;
             if(e.d===1)s+=restQ(x,y0);
             else if(e.d===.5)s+=restE(x,y0);
             else if(e.d===2)s+=`<rect x="${x-8}" y="${y0+11}" width="16" height="5" fill="#222"/>`;
             else s+=`<rect x="${x-8}" y="${y0+8}" width="16" height="5" fill="#222"/>`;
             return}
           const st=stepOf(e.p),y=yOf(st);
-          if(e.d>.5)flush();
+          if(e.d>.75)flush();
           s+=head(x,st,e.d,col);
-          if((e.d%1===.5&&e.d>=1)||e.d===3)s+=`<circle cx="${x+12}" cy="${y-(st%2===0?4:0)}" r="2.3" fill="${col}"/>`;
+          if((e.d%1===.5&&e.d>=1)||e.d===3||e.d===.75)s+=`<circle cx="${x+12}" cy="${y-(st%2===0?4:0)}" r="2.3" fill="${col}"/>`;
           if(e.cont&&tiePend){const up=tiePend.st<4,y1=yOf(tiePend.st)+(up?7:-7);s+=`<path d="M${tiePend.x+7} ${y1} Q${(tiePend.x+x)/2} ${y1+(up?11:-11)} ${x-7} ${y1}" fill="none" stroke="${col}" stroke-width="2"/>`;tiePend=null}
           if(e.tie)tiePend={x,st};
           if(isSharp(e.p)&&!(FLAT&&e.p%12===10)&&!seen[st]){seen[st]=1;s+=`<text x="${x-19}" y="${y+7}" font-size="22" class="mus" fill="${col}">♯</text>`}
-          if(e.d<=.5){const last=grp[grp.length-1],key=b=>e.d===.25?Math.floor(b):Math.floor(b/2);
-            if(last&&(last.d!==e.d||key(last.b)!==key(e.b)||e.b!==last.b+e.d))flush();
-            grp.push({x,st,b:e.b,d:e.d})}
+          if(e.d<=.75){const kf=q=>q.tag==='N'||q.tag==='n'?Math.floor((q.b+1e-6)/1.5):(q.d===.25||q.d===.75||q.tag==='R'||Math.abs(q.d-1/3)<1e-6)?Math.floor(q.b+1e-6):Math.floor(q.b/2),
+              cl=q=>q.d===.25||q.d===.75?'m':Math.abs(q.d-1/3)<1e-6?'t':(q.tag==='N'||q.tag==='n')?'n':'e';
+            const last=grp[grp.length-1],cur={x,st,b:e.b,d:e.d,tag:e.tag};
+            if(last&&(cl(last)!==cl(cur)||kf(last)!==kf(cur)||Math.abs(e.b-(last.b+last.d))>1e-6))flush();
+            grp.push(cur)}
           else if(e.d<4){const up=st<4,sx=up?x+5.6:x-5.6;s+=`<line x1="${sx}" x2="${sx}" y1="${y}" y2="${up?y-30:y+30}" stroke="${col}" stroke-width="2"/>`}
           if(!e.cont)s+=`<text class="nm" x="${x}" y="${y0+60}">${nameOf(e.p)}</text>`;
         });
@@ -347,8 +372,8 @@ const Eng={ctx:null,run:null,
   /* cfg: bpm, seq[], events(v,id), audible[], click, countIn, tapVoice, onFrame, onEnd */
   play(cfg){const c=this.ensure();this.stop();
     const BPB=cfg.bpb||4,spb=60/cfg.bpm,st=c.currentTime+.25,cb=cfg.countIn===false?0:BPB,t0=st+cb*spb,total=cfg.seq.length*BPB,ev=[],exp=[];
-    for(let k=0;k<cb;k++){const t=st+k*spb;ev.push({t,f:()=>this.click(t,k===0)})}
-    if(cfg.click)for(let k=0;k<total;k++){const t=t0+k*spb;ev.push({t,f:()=>this.click(t,k%BPB===0)})}
+    const cst=cfg.cstep||1;for(let k=0;k<cb/cst;k++){const t=st+k*cst*spb;ev.push({t,f:()=>this.click(t,k===0)})}
+    if(cfg.click)for(let k=0;k<total/cst;k++){const t=t0+k*cst*spb;ev.push({t,f:()=>this.click(t,(k*cst)%BPB===0)})}
     cfg.seq.forEach((id,s)=>{(cfg.audible||[]).forEach((a,v)=>{if(!a)return;cfg.events(v,id).forEach(e=>{if(e.p==null||e.cont)return;const t=t0+(s*BPB+e.b)*spb;ev.push({t,f:()=>this.tone(t,e.p,(e.td||e.d)*spb,.8)})})});
       if(cfg.tapVoice!=null)cfg.events(cfg.tapVoice,id).forEach(e=>{if(e.p!=null&&!e.cont)exp.push({t:t0+(s*BPB+e.b)*spb,id,b:e.b,s})})});
     ev.sort((a,b)=>a.t-b.t);
@@ -437,20 +462,21 @@ function exerciseCard(def,levelN,onPass,idx){
 const starsTxt=p=>p==null?'':p>=95?'★★★':p>=85?'★★☆':p>=CONFIG.pass?'★☆☆':'☆☆☆ '+p+'%';
 
 function buildEx(body,def,card,levelN,onPass){
-  const sc=renderScore({bars:def.bars,systems:def.systems,voices:[{label:'',color:'#222'}],events:(id,v)=>def.bars[id].v[v],words:true,per:def.per,bpb:def.bpb});sc.el.classList.add('nonames');
+  const sc=renderScore({bars:def.bars,systems:def.systems,voices:[{label:'',color:'#222'}],events:(id,v)=>def.bars[id].v[v],words:true,per:def.per,bpb:def.bpb,ts:def.ts});sc.el.classList.add('nonames');
   const ctl=controls({bpm:def.bpm,max:140,toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true]],onChange:(k,v)=>{if(k==='words')sc.el.classList.toggle('nowords',!v)}});
   const pad=html('<div class="pad"><div style="text-align:center">Hier tippen<span style="display:block;font-size:14px;font-weight:600;letter-spacing:0;opacity:.85;margin-top:4px">statt klatschen: tippe im Takt auf diese Fläche</span></div></div>'),res=html('<div class="res" style="display:none"></div>');
   const btns=html(`<div class="row stick"><button class="btn sec" data-a="hear">▶ Vorhören</button><button class="btn sec" data-a="prac">Üben</button><button class="btn" data-a="test">Test</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
   body.append(btns,html('<div class="small muted" style="margin:0 0 4px"><b>Vorhören:</b> zuhören · <b>Üben:</b> mitklatschen, keine Wertung · <b>Test:</b> mit Wertung in %</div>'),ctl.el,sc.el,pad,res);
+  if(def.dikt){sc.el.style.display='none';const pr=$('[data-a=prac]',btns);if(pr)pr.style.display='none';const tb=$('[data-a=test]',btns);if(tb)tb.textContent='Nachtippen';const hb=$('[data-a=hear]',btns);if(hb)hb.textContent='▶ Rhythmus anhören'}
   const seq=def.ids;
   const setRun=r=>{$('[data-a=stop]',btns).style.display=r?'':'none';btns.querySelectorAll('[data-a]').forEach(b=>{if(b.dataset.a!=='stop')b.disabled=!!r})};
   const start=mode=>{res.style.display='none';sc.clearMarks();
     const clk=mode==='test'&&def.noClickTest?false:ctl.st.click;
     setRun(true);
-    Eng.play({bpm:ctl.st.bpm,bpb:def.bpb,seq,events:(v,id)=>def.bars[id].v[0],audible:[mode==='hear'],click:clk,tapVoice:mode==='test'?0:null,
+    Eng.play({bpm:ctl.st.bpm,bpb:def.bpb,cstep:def.cstep,seq,events:(v,id)=>def.bars[id].v[0],audible:[mode==='hear'],click:clk,tapVoice:mode==='test'?0:null,
       onFrame:f=>{if(f.counting){sc.count(f.countBeat);sc.hideCursor();sc.clearHl()}else{sc.count(null);if(ctl.st.bar){sc.cursor(f.id,f.bb);sc.hl(f.id,f.bb)}else{sc.hideCursor();sc.clearHl()}}},
       onEnd:(run,fin)=>{setRun(false);sc.count(null);sc.hideCursor();sc.clearHl();if(mode==='test'&&fin)showRes(run)}})};
-  const showRes=run=>{const r=Eng.score(run);
+  const showRes=run=>{if(def.dikt)sc.el.style.display='';const r=Eng.score(run);
     r.res.forEach(x=>sc.mark(x.x.id,x.x.b,x.dt==null?'#dc2626':x.cr>=1?'#16a34a':'#f59e0b'));
     const ok=r.pct>=CONFIG.pass,ms=Math.round(r.avg*1000);
     if(!def.noSave){S.best[def.id]=Math.max(S.best[def.id]||0,r.pct);save()}
@@ -567,7 +593,13 @@ add2('c12',[[0,'Dm'],[2,'C']],null,[],{});B2.c12.v=[HH(65,64),HH(69,67),HH(62,60
 add2('c13',[[0,'Bb']],p=>mk('W',p),[62,65,58]);
 add2('c14',[[0,'A']],p=>BRK(p),[61,64,57],{fin:1});
 const mkRows=(pre,n)=>{const r=[];for(let i=1;i<=n;i+=4){const row=[];for(let k=i;k<i+4&&k<=n;k++)row.push(pre+k);r.push(row)}return r};
-const S2A=[['a1','a2','a3','a4'],['a5','a6','a7','a8'],['a9','a10']],S2C=mkRows('c',14);
+SD('d1',[[0,'Dm']],[62,65,57]);SD('d2',[[0,'Dm']],[62,65,57]);
+add2('e1',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e2',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e3',[[0,'Dm']],p=>mk('W',p),[62,65,57],{});add2('e4',[[0,'Dm']],p=>mk('W',p),[62,65,57],{});
+add2('e5',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e6',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e7',[[0,'A7']],p=>mk('W',p),[61,67,57],{});add2('e8',[[0,'A7']],p=>mk('W',p),[61,67,57],{fin:1});
+add2('i1',[[0,'Dm/F']],p=>mk('W',p),[62,65,57],{});add2('i2',[[0,'Am/E']],p=>mk('W',p),[60,64,57],{});
+['d1','d2','e1','e2','e3','e4','e5','e6','e7','e8','i1','i2'].forEach(id=>{B2[id].raw=1});
+const S2A=[['a1','a2','a3','a4'],['a5','a6','a7','a8'],['d1','d2'],['a9','a10']],S2C=mkRows('c',14),S2E=[['e1','e2','e3','e4'],['e5','e6','e7','e8']],S2I=[['i1','i2']];
+const S2B=['d1','d2','a3','a4','d1','d2','a9','a10'],E2=['e1','e2','e3','e4','e5','e6','e7','e8'],I2=['i1','i2'];
 const A2=['a1','a2','a3','a4','a5','a6'],C2=[1,2,3,4,5,6,7,8,9,10,11,12,13,14].map(i=>'c'+i);
 const Q=(id,t,d,p,x)=>exDef(id,t,d,p,x);
 [1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(i=>{B2['c'+i].raw=1});
@@ -601,6 +633,19 @@ const EXM=[
  exDef('m3','Strophe und Pre-Chorus','Wechsel von «Trinidad, Trinidad, to-go» zu halben Noten.',[AT(65),AT(65),'H2','H2'],{bpm:80})
 ];
 
+/* Zusätzliche Rhythmus-Bausteine (Übersicht) */
+const EXN={
+ sync:[RX('r30','Synkope: Hopp – Schritt – Hopp','Die Viertel liegt zwischen den Schlägen. Zähle im Kopf «1 und 2 und» und tippe nur auf die Noten.',['oSoSS','SoSoS','oSoH','oSoLS'],{bpm:52})],
+ tie:[exDef('r31','Haltebogen','Der Bogen verbindet zwei Noten: Du tippst nur die erste und lässt den Ton weiterklingen.',[TIE(65,65),TIE(65,65),TIE(65,65),TIE(65,65)],{bpm:66})],
+ trin:[exDef('r32','Trinidad, Trinidad, to-go','Eine lange, eine lange, eine kurze Note: 3 + 3 + 2 Achtel. Sprich «Trinidad, Trinidad, to-go».',[T3(65),T3(65),T3(65),T3(65)],{bpm:70})],
+ paus:[RX('r33','Halbe und ganze Pause','Bei einer halben Pause schweigst du zwei Schläge, bei einer ganzen Pause den ganzen Takt. Der Puls läuft weiter.',['Hh','hH','ShS','w'],{bpm:60})],
+ punkt:[RX('r35','Punktierte Achtel mit Sechzehntel','Eine lange und eine ganz kurze Note teilen sich einen Schlag: «Hüpfe». Beginne langsam!',['jjjj','jSjS','SjSj','jLjS'],{bpm:50,per:2})],
+ trio:[RX('r36','Triolen','Drei gleiche Noten auf einen Schlag: «Triole». Sprich «Tri-o-le» im Puls.',['RRRR','RSRS','SRSR','RLRS'],{bpm:50,per:2})],
+ auf:[RX('r37','Auftakt','Das Stück beginnt erst auf dem letzten Schlag. Zähle «1-2-3» still und setze auf der 4 ein.',['AS','SSSS','SSSS','SSSC','AS','HS C'.replace(' ','')],{bpm:60,per:3})],
+ t68:[RX('r38','Der 6/8-Takt','Zwei grosse Schläge pro Takt, jeder in drei Achtel geteilt. «Trinidad» = ein grosser Schlag, «Banane» = drei Achtel.',['QQ','NN','QN','NQ','NN','QQ'],{bpm:80,bpb:3,ts:'6/8',cstep:1.5,per:2})],
+ t24:[RX('r34','Der 2/4-Takt','Zwei Schläge pro Takt: 1-2, 1-2 – wie ein Marsch. Eine halbe Note füllt den ganzen Takt.',['SS','H','SS','LS'],{bpm:66,bpb:2,per:4})]
+};
+
 /* Lied 4: Scarborough Fair (3/4, Stimmen 1–3) */
 const N3=(pat,ps)=>{const ev=tk(pat,0);let i=0;ev.forEach(e=>{if(e.p!=null)e.p=ps[Math.min(i++,ps.length-1)]});return ev};
 const B4={};
@@ -633,7 +678,17 @@ const SONGS=[
   l2intro:'Noten zeigen, <b>wie lange</b> ein Ton dauert (in Schlägen). Mit der <b>Rhythmussprache</b> kannst du jeden Rhythmus sprechen, bevor du ihn klatschst oder spielst:',
   t4:'Wie im Klassenarrangement: Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – aber jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, Dm, G, C, E …).',
   t5:'Das Ziel: Jede Gruppe spielt ihre Stimme – zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:90},
- {id:'s3',n:2,em:'❤️',title:'Alles von mir',meta:'C-Dur / a-Moll · 4/4 · Trinidad mit Haltebogen, halbe Noten',diff:2,flat:false,
+ {id:'s4',n:2,em:'🌿',title:'Scarborough Fair',meta:'d-Moll · 3/4 · Viertel, halbe Noten, punktierte halbe',diff:2,flat:false,bpb:3,
+  bars:B4,systems:S4,kbLo:57,kbHi:74,oneTone:62,blocks:EXT,
+  lines:mkLines(S4,['Zeile 1 (Takt 1–4)','Zeile 2 (Takt 5–8)','Zeile 3 (Takt 9–12)','Zeile 4 (Takt 13–16)','Zeile 5 (Takt 17–20)']),
+  elems:['quarter','half','dhalf'],
+  parts:[{label:'Lied',systems:S4,seq:'ganz',variants:true}],
+  seqs:{ganz:{label:'Ganzes Lied',ids:F4}},
+  l2sub:'Neu: der 3/4-Takt mit halben und punktierten halben Noten',
+  l2intro:'Dieses Lied steht im <b>3/4-Takt</b>: Jeder Takt hat <b>drei Schläge</b> (1-2-3). Meistens spielst du drei Viertel («Schritt, Schritt, Schritt»). An manchen Stellen kommt eine halbe Note dazu («sta-ah, Schritt») und am Schluss eine punktierte halbe Note («sta 2 3»). Was du schon kannst, ist mit ✓ markiert.',
+  t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Dm, C, F, G). Zähle im Kopf immer <b>1-2-3</b>.',
+  t5:'Das ganze Lied zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:134},
+ {id:'s3',n:3,em:'❤️',title:'Alles von mir',meta:'C-Dur / a-Moll · 4/4 · Trinidad mit Haltebogen, halbe Noten',diff:2,flat:false,
   bars:B3,systems:S3S.concat(S3P,S3C),kbLo:57,kbHi:74,oneTone:64,blocks:EXM,
   lines:mkLines(S3S.concat(S3P,S3C),['Strophe (Takt 1–4)','Pre-Chorus (Takt 5–8)','Pre-Chorus Schluss (Takt 9)','Refrain 1 (Takt 10–13)','Refrain 2 (Takt 14–17)','Refrain 3 (Takt 18–21)','Refrain 4 (Takt 22–25)']),
   elems:['half','dotted','tieq'],
@@ -646,27 +701,19 @@ const SONGS=[
   l2intro:'Die Strophe hat den Rhythmus <b>«Trinidad, Trinidad, to-go»</b>, aber anders geschrieben: eine punktierte Viertel, dann eine Achtel mit <b>Haltebogen</b> zur Viertel, dann eine Viertel. Im Pre-Chorus und im Refrain spielst du <b>halbe Noten</b> («sta-ah»). Was du schon kannst, ist mit ✓ markiert.',
   t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, F, C, G, Dm …). Im Refrain kommen <b>Dsus4</b>, <b>Gsus4</b> und <b>Csus2</b> vor: Dort wird ein Ton des Akkords nur um eine Taste verschoben.',
   t5:'Strophe, Pre-Chorus und Refrain zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:120},
- {id:'s2',n:3,em:'💣',title:'Granate',meta:'d-Moll · 4/4 · punktierte Viertel, Haltebögen, Break',diff:2,flat:true,
-  bars:B2,systems:S2A.concat(S2C),kbLo:57,kbHi:72,oneTone:62,blocks:[EXQ[0],EXQ[1],EXQ[2]],lines:mkLines(S2A.concat(S2C),['Strophe 1','Strophe 2','Strophe 3','Refrain 1','Refrain 2','Refrain 3','Refrain 4']),elems:['whole','half','quarter','dotted','trin','tie','brk'],
-  parts:[{label:'Strophe',systems:S2A,seq:'strophe',variants:true},{label:'Refrain',systems:S2C,seq:'refrain',variants:false}],
-  seqs:{strophe:{label:'Strophe',ids:A2.concat(['a7','a8'],A2,['a9','a10'])},
+ {id:'s2',n:4,em:'💣',title:'Granate',meta:'d-Moll · 4/4 · punktierte Viertel, Haltebögen, Break',diff:2,flat:true,
+  bars:B2,systems:S2A.concat(S2C,S2E,S2I),kbLo:57,kbHi:72,oneTone:62,blocks:[EXQ[0],EXQ[1],EXQ[2]],lines:mkLines(S2A.concat(S2C,S2E,S2I),['Strophe 1','Strophe 2','Strophe 3 (Dm)','Strophe 4','Refrain 1','Refrain 2','Refrain 3','Refrain 4','Coda 1','Coda 2','Instrumental']),elems:['whole','half','quarter','dotted','trin','tie','brk'],
+  parts:[{label:'Strophe',systems:S2A,seq:'strophe',variants:true},{label:'Refrain',systems:S2C,seq:'refrain',variants:false},{label:'Instrumental',systems:S2I,seq:'instr',variants:false},{label:'Coda',systems:S2E,seq:'coda',variants:false}],
+  seqs:{strophe:{label:'Strophe',ids:A2.concat(['a7','a8'],S2B)},
         refrain:{label:'Refrain',ids:C2},
-        ganz:{label:'Strophe + Refrain',ids:A2.concat(['a7','a8'],A2,['a9','a10'],C2)}},
+        instr:{label:'Instrumental',ids:I2},
+        coda:{label:'Coda',ids:E2},
+        ganz:{label:'Ganzes Lied',ids:A2.concat(['a7','a8'],S2B,C2,I2,A2,['a7','a8'],S2B,C2,E2)}},
   l2sub:'Neue Bausteine: punktierte Viertel, Haltebogen, Break',
   l2intro:'Dieses Lied hat einen neuen Rhythmus: <b>drei Töne pro Takt</b>, zwei lange und ein kurzer (3 + 3 + 2 Achtel). Sprich <b>«Trinidad, Trinidad, to-go»</b>. Im Refrain kommen Haltebögen dazu, am Ende jedes Teils ein <b>Break</b> mit Pausen. Was du schon kannst, ist mit ✓ markiert.',
   l3info:'<div class="card"><h3>Neu in diesem Lied: Vorzeichen</h3><p class="small" style="margin:0">Das <b>♭</b> am Anfang der Zeile steht für das ganze Lied: Jedes <b>h</b> wird zum <b>b</b> (schwarze Taste links vom h). Ein <b>♯</b> vor einer Note (hier <b>cis</b>, schwarze Taste rechts vom c) gilt nur bis zum Taktende.</p></div>',
   t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus («Trinidad, Trinidad, to-go») – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Dm, Am, B, A7 …). Im Refrain wechselt der Akkord mitten im Takt.',
-  t5:'Strophe und Refrain zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Achtung beim <b>Break</b>: Alle hören gleichzeitig auf. Danach singen wir dazu.',bpm:110},
- {id:'s4',n:4,em:'🌿',title:'Scarborough Fair',meta:'d-Moll · 3/4 · Viertel, halbe Noten, punktierte halbe',diff:2,flat:false,bpb:3,
-  bars:B4,systems:S4,kbLo:57,kbHi:74,oneTone:62,blocks:EXT,
-  lines:mkLines(S4,['Zeile 1 (Takt 1–4)','Zeile 2 (Takt 5–8)','Zeile 3 (Takt 9–12)','Zeile 4 (Takt 13–16)','Zeile 5 (Takt 17–20)']),
-  elems:['quarter','half','dhalf'],
-  parts:[{label:'Lied',systems:S4,seq:'ganz',variants:true}],
-  seqs:{ganz:{label:'Ganzes Lied',ids:F4}},
-  l2sub:'Neu: der 3/4-Takt mit halben und punktierten halben Noten',
-  l2intro:'Dieses Lied steht im <b>3/4-Takt</b>: Jeder Takt hat <b>drei Schläge</b> (1-2-3). Meistens spielst du drei Viertel («Schritt, Schritt, Schritt»). An manchen Stellen kommt eine halbe Note dazu («sta-ah, Schritt») und am Schluss eine punktierte halbe Note («sta 2 3»). Was du schon kannst, ist mit ✓ markiert.',
-  t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Dm, C, F, G). Zähle im Kopf immer <b>1-2-3</b>.',
-  t5:'Das ganze Lied zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:134}
+  t5:'Strophe und Refrain zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Achtung beim <b>Break</b>: Alle hören gleichzeitig auf. Danach singen wir dazu.',bpm:110}
 ];
 /* ================= Akkordprojekt ================= */
 const CROOT=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','H'];
@@ -815,9 +862,9 @@ const AKSONGS=[
  {id:'shape',title:'Shape of You',lvl:2,key:'H-Moll',bpm:96,lh:'opt',pat:'seg',
   rhythm:'<b>Zwei Akkorde pro Takt</b>: jeder Akkord eine halbe Note («sta-ah»). Die linke Hand (für Fortgeschrittene) spielt den Grundton als halbe Note.',
   bars:[[SG(CHD('Hm',11,'moll',[62,66,71]),47,2),SG(CHD('Em',4,'moll',[64,67,71]),52,2)],[SG(CHD('G',7,'dur',[62,67,71]),43,2),SG(CHD('A',9,'dur',[61,64,69]),45,2)]]},
- {id:'havana',title:'Havana',lvl:3,key:'G-Moll',bpm:105,lh:'opt',pat:'trin',
-  rhythm:'<b>Rhythmus (Vorschlag, wird noch geprüft)</b>: «Trinidad, Trinidad, to-go» (3 + 3 + 2 Achtel), der Akkord wird dreimal pro Takt angeschlagen. Die linke Hand (für Fortgeschrittene) spielt den Grundton als ganze Note.',
-  bars:[[SG(CHD('Gm',7,'moll',[62,67,70]),43,4)],[SG(CHD('Eb',3,'dur',[63,67,70]),51,4)],[SG(CHD('D7',2,'dom7',[62,66,69,72]),50,4)],[SG(CHD('D7',2,'dom7',[62,66,69,72]),50,4)]]},
+ {id:'havana',title:'Havana',lvl:3,key:'G-Moll',bpm:105,lh:'opt',pat:'havana',
+  rhythm:'4 Takte, werden wiederholt. <b>Takt 1 und 3 (Gm – Es):</b> die rechte Hand schlägt den Akkord auf Schlag 2 und 4 an (Schlag 1 und 3 sind Pause). <b>Takt 2 (D7):</b> Pause, dann ein Akkord auf Schlag 2, der bis auf «3» gehalten wird (Haltebogen), danach zwei Achtel und eine Viertel. <b>Takt 4 (D7):</b> Pause, Akkord auf Schlag 2, Achtelpause, dann drei Achtel. Die linke Hand (für Fortgeschrittene) spielt Grundtöne: Viertel, Achtelpause, Achtel, dann Viertel und zwei Achtel.',
+  bars:[[SG(CHD('Gm',7,'moll',[62,67,70]),43,2),SG(CHD('Eb',3,'dur',[63,67,70]),51,2)],[SG(CHD('D7',2,'dom7',[62,66,69,72]),50,4)],[SG(CHD('Gm',7,'moll',[62,67,70]),43,2),SG(CHD('Eb',3,'dur',[63,67,70]),51,2)],[SG(CHD('D7',2,'dom7',[62,66,69,72]),50,4)]]},
  {id:'jack',title:'Hit the Road Jack',lvl:3,key:'C-Moll',bpm:87,lh:'req',swing:1,pat:'jack',
   rhythm:'<b>Swing</b> (Original 173 BPM, zum Üben das halbe Tempo): <b>Linke Hand</b> (Pflicht): halbe Noten, Stufe für Stufe nach unten: C – Bb – Ab – G. <b>Rechte Hand</b>: kommt auf den <b>Offbeat</b> (Schlag 2 und 4). Im 2. Takt: punktierte Viertel mit Haltebogen zur Achtel, dann zwei Achtel. Die rechte Hand spielt 3-Ton-Akkorde ohne Grundton (den spielt die linke Hand).'}
 ];
@@ -831,6 +878,12 @@ function akBars(sg){
     const b2={segs:[{ch:JAb,b:0,d:2},{ch:JG,b:2,d:2}],rh:[[1,2,JAb],[3,.5,JG],[3.5,.5,JG]],bass:[[0,2,44],[2,2,43]]};
     const b4={segs:[{ch:JAb,b:0,d:2},{ch:JG,b:2,d:2}],rh:[[1,1,JAb],[2.5,.5,JG],[3,.5,JG],[3.5,.5,JG]],bass:[[0,2,44],[2,2,43]]};
     return [b1,b2,b1,b4]}
+  if(sg.pat==='havana'){
+    return sg.bars.map((b,k)=>{const segs=mkSegs(b),c0=segs[0].ch;let rh,bass;
+      if(k%2===0){rh=[[1,1,segs[0].ch],[3,1,segs[1].ch]];bass=[[0,1,43],[1.5,.5,43],[2,1,51],[3,.5,51]]}
+      else{bass=[[0,.5,50],[.5,.5,50],[1,1,50]];
+        rh=k===1?[[1,1.5,c0],[2.5,.5,c0],[3,1,c0]]:[[1,1,c0],[2.5,.5,c0],[3,.5,c0],[3.5,.5,c0]]}
+      return{segs,rh,bass}})}
   return sg.bars.map(b=>{const segs=mkSegs(b),at=t=>segs.filter(s=>s.b<=t+1e-6).pop().ch;let rh=[];
     if(sg.pat==='seg')rh=segs.map(s=>[s.b,s.d,s.ch]);
     else if(sg.pat==='eighth')for(let i=0;i<8;i++)rh.push([i*.5,.5,at(i*.5)]);
@@ -918,15 +971,26 @@ function metroCard(bpb,title,bpm0){
       onFrame:f=>{if(f.counting)return;const k=Math.floor(f.bb);dots.forEach((d,i)=>{d.className=i===k?'on'+(k===0?' acc':''):''})},
       onEnd:()=>{on=false;dots.forEach(d=>d.className='');$('[data-a=go]',m).textContent='▶ Start'}})};
   return m}
-function genCard(pool,bpb,label){
+function genCard(pool,bpb,label,gx){
   const card=html(`<div class="card" style="background:#f7f8ff"><div class="row sp"><div><h3 style="margin:0">🎲 Zufallsrhythmus</h3><div class="small muted">Vier neue Takte mit den Bausteinen bis «${label}».</div></div><button class="btn sec" data-a="g">Neu würfeln</button></div><div class="gh"></div></div>`);
   const host=$('.gh',card);
   const roll=()=>{Eng.stop();host.innerHTML='';
     const ss=[0,1,2,3].map(()=>randBar(pool,bpb));
-    const def=exDef('gen','Zufallsrhythmus','',ss.map(x=>tk(x,65)),{bpb,noSave:true,per:pool.includes('U')?2:4,bpm:pool.includes('U')?50:64});
+    const def=exDef('gen','Zufallsrhythmus','',ss.map(x=>tk(x,65)),Object.assign({bpb,noSave:true,per:pool.includes('U')?2:(gx?2:4),bpm:pool.includes('U')?50:64},gx||{}));
     const body=html('<div style="margin-top:10px"></div>');host.append(body);buildEx(body,def,null,0)};
   card.onclick=e=>{if(e.target.dataset.a==='g')roll()};
   return card}
+function diktatCard(){
+  const LV=[['Einfach','SLp','Schritt, Laufe, Pause'],['Mittel','SHLpuo','dazu halbe Noten, «und», «Hopp»'],['Schwer','SHLpuoUo','dazu Sechzehntel «umerenne»']];
+  let lv=0;
+  const card=html(`<div class="card" style="background:#f0fdf4;border-color:#bbf7d0"><div class="row sp"><div><h3 style="margin:0">🎧 Rhythmus-Diktat</h3><div class="small muted">Die App spielt einen Rhythmus vor. Höre gut zu und tippe ihn danach nach. Die Noten siehst du erst am Schluss.</div></div><button class="btn sec" data-a="g">Neues Diktat</button></div><div class="row" style="margin:8px 0"><div class="seg">${LV.map((l,i)=>`<button data-l="${i}" class="${i===0?'on':''}">${l[0]}</button>`).join('')}</div><span class="small muted dl">${LV[0][2]}</span></div><div class="gh"></div></div>`);
+  const host=$('.gh',card);
+  const roll=()=>{Eng.stop();host.innerHTML='';
+    const pool=LV[lv][1],ss=[0,1,2,3].map(()=>randBar(pool,4));
+    const def=exDef('dikt','Rhythmus-Diktat','',ss.map(x=>tk(x,65)),{bpb:4,noSave:true,per:pool.includes('U')?2:4,bpm:lv===2?50:64,noClickTest:true,dikt:true});
+    const body=html('<div></div>');host.append(body);buildEx(body,def,null,0)};
+  card.onclick=e=>{const t=e.target;if(t.dataset.a==='g')roll();else if(t.dataset.l!=null){lv=+t.dataset.l;card.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b===t));$('.dl',card).textContent=LV[lv][2];roll()}};
+  roll();return card}
 const RLESS=[
  {t:'Puls und Schritt',sub:'Gleichmässig tippen: «Schritt»',pool:'S',pre:()=>metroCard(4),ex:EX1,
   intro:'<p><b>Was ist der Puls?</b> Der Puls ist der gleichmässige Grundschlag der Musik – wie dein Herzschlag oder deine Schritte beim Gehen. Er bleibt immer gleich schnell, auch wenn die Musik eine Pause macht. Du findest ihn, wenn du bei einem Lied automatisch mitwippst, mit dem Fuss tippst oder mitklatschst.</p><p><b>Puls und Rhythmus:</b> Der Puls läuft gleichmässig durch. Der <b>Rhythmus</b> sind die kurzen und langen Töne, die darüber gespielt werden. Der Puls ist wie ein Lineal, der Rhythmus sind die Striche darauf.</p><p><b>Takt:</b> Wir zählen die Pulsschläge in Gruppen. Bei <b>4/4</b> sind es vier Schläge pro Takt: <b>1</b>-2-3-4, <b>1</b>-2-3-4. Die Eins wird betont. Ein Pulsschlag heisst in unserer Rhythmussprache <b>«Schritt»</b>.</p><p class="small muted">Ausprobieren: Starte das Metronom, tippe mit dem Fuss mit und zähle laut 1-2-3-4. Dann halte den Puls ohne Klick (zweite Übung).</p>'},
@@ -944,10 +1008,28 @@ const RLESS=[
   intro:'<p>Zwei <b>Achtel</b> füllen einen Schlag: <b>«Laufe»</b>.</p>'},
  {t:'umerenne: vier Sechzehntel',sub:'Vier Töne auf einen Schlag',pool:'SHWDpuoLU',ex:EXR.ume,
   intro:'<p>Vier <b>Sechzehntel</b> füllen einen Schlag: <b>«umerenne»</b>. Das ist schnell: Beginne langsam!</p>'},
+ {t:'Synkope: Hopp – Schritt – Hopp',sub:'Eine Note zwischen den Schlägen',pool:'SHoLp',ex:EXN.sync,
+  intro:'<p>Bei einer <b>Synkope</b> beginnt eine Note <i>zwischen</i> den Schlägen. Das Muster heisst <b>«Hopp – Schritt – Hopp»</b>: eine Achtel, eine Viertel, eine Achtel. Zähle im Kopf «1 und 2 und» mit.</p>'},
+ {t:'Der Haltebogen',sub:'Zwei Noten werden zu einem langen Ton',pool:'SHpL',ex:EXN.tie,
+  intro:'<p>Ein <b>Haltebogen</b> verbindet zwei Noten gleicher Tonhöhe. Du spielst nur die <b>erste</b> und hältst den Ton so lang wie beide Noten zusammen.</p>'},
+ {t:'Trinidad: punktierte Viertel',sub:'3 + 3 + 2 Achtel',pool:'SHpL',ex:EXN.trin,
+  intro:'<p>Eine <b>punktierte Viertel</b> dauert anderthalb Schläge (drei Achtel). Das Muster <b>«Trinidad, Trinidad, to-go»</b> ist 3 + 3 + 2 Achtel lang. Es kommt in vielen Liedern vor, zum Beispiel in «Granate» und «Alles von mir».</p>'},
+ {t:'Halbe und ganze Pause',sub:'Lange Stille im Takt',pool:'SHWDph',ex:EXN.paus,
+  intro:'<p>Die <b>halbe Pause</b> ist zwei Schläge still, die <b>ganze Pause</b> einen ganzen Takt. Du sprichst «paus» und «paus 2» (in der Pause tippst du nicht). Der Puls läuft immer weiter.</p>'},
+ {t:'Hüpfe: punktierte Achtel und Sechzehntel',sub:'Lang – kurz in einem Schlag',pool:'SHpLj',ex:EXN.punkt,
+  intro:'<p>Eine <b>punktierte Achtel</b> ist dreimal so lang wie die <b>Sechzehntel</b> danach. Zusammen füllen sie einen Schlag: <b>«Hüpfe»</b>. Das klingt wie ein kleiner Hüpfer.</p>'},
+ {t:'Triolen: drei Noten auf einen Schlag',sub:'«Tri-o-le»',pool:'SHpLR',ex:EXN.trio,
+  intro:'<p>Bei einer <b>Triole</b> teilst du einen Schlag in <b>drei</b> gleich lange Teile (statt in zwei bei «Laufe»). Sprich <b>«Tri-o-le»</b>. Über den Noten steht eine kleine <b>3</b>.</p>'},
+ {t:'Der Auftakt',sub:'Beginn auf dem letzten Schlag',pool:'SHpL',ex:EXN.auf,
+  intro:'<p>Ein <b>Auftakt</b> ist eine Note (oder mehrere) <i>vor</i> dem ersten vollen Takt. Du zählst die Schläge davor still und setzt erst am Schluss des Taktes ein. Der Auftakt-Takt und der letzte Takt ergeben zusammen oft einen vollen Takt.</p>'},
  {t:'Alles gemischt (4/4)',sub:'Takte mit allen Bausteinen',pool:'SHWDpuoLU',ex:EXR.mix,
   intro:'<p>Jetzt mischen wir alles, was du kennst. Bleib immer am Puls.</p>'},
  {t:'Der 3/4-Takt',sub:'Drei Schläge pro Takt',pool:'SHDpL',bpb:3,pre:()=>metroCard(3,'Metronom im 3/4-Takt'),ex:EXR.t34,
-  intro:'<p>Beim <b>3/4-Takt</b> gehören drei Schläge zu einem Takt: <b>1</b>-2-3, <b>1</b>-2-3 – wie bei einem Walzer. Ein ganzer Takt ist <b>«sta 2 3»</b> (punktierte halbe Note).</p>'}
+  intro:'<p>Beim <b>3/4-Takt</b> gehören drei Schläge zu einem Takt: <b>1</b>-2-3, <b>1</b>-2-3 – wie bei einem Walzer. Ein ganzer Takt ist <b>«sta 2 3»</b> (punktierte halbe Note).</p>'},
+ {t:'Der 2/4-Takt',sub:'Zwei Schläge pro Takt',pool:'SHpL',bpb:2,pre:()=>metroCard(2,'Metronom im 2/4-Takt'),ex:EXN.t24,
+  intro:'<p>Beim <b>2/4-Takt</b> gehören zwei Schläge zu einem Takt: <b>1</b>-2, <b>1</b>-2 – wie bei einem Marsch. Ein ganzer Takt ist eine halbe Note: <b>«sta-ah»</b>.</p>'},
+ {t:'Der 6/8-Takt',sub:'Zwei grosse Schläge, je drei Achtel',pool:'QN',bpb:3,gx:{ts:'6/8',cstep:1.5},ex:EXN.t68,
+  intro:'<p>Der <b>6/8-Takt</b> hat <b>zwei</b> grosse Schläge pro Takt. Jeder Schlag besteht aus <b>drei Achteln</b>. Eine punktierte Viertel heisst <b>«Trinidad»</b>, drei Achtel heissen <b>«Banane»</b>. Es klingt wie ein Schaukeln.</p>'}
 ];
 function lessonCard(L,i){
   const isDone=()=>L.ex.length&&L.ex.every(d=>S.best[d.id]>=CONFIG.pass);
@@ -956,7 +1038,7 @@ function lessonCard(L,i){
   $('.lh',c).onclick=()=>{c.classList.toggle('open');if(built)return;built=true;const lb=$('.lb',c);
     lb.append(html(`<div>${L.intro}</div>`));if(L.pre)lb.append(L.pre());
     L.ex.forEach((d,k)=>lb.append(exerciseCard(d,0,()=>{if(isDone())$('.nr',c).textContent='✓'},k)));
-    if(L.pool)lb.append(genCard(L.pool,L.bpb||4,L.t))};
+    if(L.pool)lb.append(genCard(L.pool,L.bpb||4,L.t,L.gx))};
   return c}
 function rhythmHub(box){
   box.append(html(`<div class="card"><h2>Puls und Rhythmus</h2><p>Hier lernst du die <b>Rhythmussprache</b> und alle Notenwerte, Stufe für Stufe. Zu jeder Stufe gibt es Beispiele zum Mitklatschen und einen <b>Zufallsrhythmus</b> zum Üben. Das brauchst du in jedem Lied.</p>
@@ -973,6 +1055,7 @@ function rhythmHub(box){
    <tr><td>${ic('rq')} Viertelpause</td><td><b>paus</b></td></tr>
    <tr><td>${ic('re')} Achtelpause</td><td><b>und</b></td></tr></table></div>`));
   RLESS.forEach((L,i)=>box.append(lessonCard(L,i)));
+  box.append(diktatCard());
 }
 
 /* ================= Level 1 & 2: Auswahl von Bausteinen und Zeilen ================= */
@@ -1127,15 +1210,17 @@ const unlocked=n=>n===1||isDemo()||S.teacher||isDone(n-1);
 const NLV=4;
 const progress=s=>[1,2,3,4].filter(n=>S.done[s.id+'_'+n]).length;
 function finishLevel(n,auto){S.done[doneK(n)]=true;save();toast('Level '+n+' geschafft! ✓'+(n<NLV?' Das nächste Level ist offen.':' Jetzt wird gesungen!'));if(!auto)setTimeout(()=>go('song'),900)}
-function go(v,sid){Eng.stop();document.body.classList.remove('beamer');$('#bx')?.remove();if(sid)CUR=SONGS.find(s=>s.id===sid);view=v;render();window.scrollTo(0,0)}
+function go(v,sid){Eng.stop();document.body.classList.remove('beamer');$('#bx')?.remove();if(sid)CUR=SONGS.find(s=>s.id===sid);view=v;render();if(window._navPush)window._navPush();window.scrollTo(0,0)}
 function render(){
   FLAT=false;
   $('#demoB').classList.toggle('on',isDemo());$('#demoB').textContent=isDemo()?'Demo an':'Demo';
-  const m=$('#main');m.innerHTML='';const bk=$('#back');bk.style.display=view==='home'?'none':'';
+  const m=$('#main');m.innerHTML='';const bk=$('#back');bk.style.display=view==='home'?'none':'';$('#prB').style.display=view==='home'?'none':'';
   bk.textContent=typeof view==='number'?'‹ '+CUR.title:'‹ Übersicht';
   if(view==='home'){$('#ttl').textContent='Piano Levels';
     if(isDemo())m.append(html('<div class="card" style="background:#fef3c7;border-color:#fde68a"><b>Demo-Version:</b> Alle Level sind offen und ein Freigabewort ist nicht nötig.</div>'));
     m.append(html(`<div class="card"><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Übe zuerst Puls und Rhythmus. Wähle dann ein Lied: Jedes Lied führt über seine Rhythmus-Bausteine bis zur gemeinsamen Akkordbegleitung.</p></div>`));
+    m.append(html('<div class="card"><h3>So funktioniert Piano Levels</h3><p class="small" style="margin:0 0 .4rem">Du lernst Schritt für Schritt, ein Lied der Klasse zu spielen. Jedes Lied hat vier Level, die aufeinander aufbauen:</p><ol class="small" style="margin:0 0 .5rem;padding-left:1.2rem"><li><b>Bausteine &amp; Rhythmus:</b> Du übst den Rhythmus des Lieds mit der <b>Rhythmussprache</b> (zum Beispiel «Schritt», «sta-ah», «Laufe») und tippst ihn im Takt mit. Das Level schliesst die App selbst ab.</li><li><b>Ein Ton:</b> Du spielst den Rhythmus auf einem einzigen Ton auf dem Piano.</li><li><b>Akkordtöne:</b> Die Klasse spielt in drei Gruppen den gleichen Rhythmus, jede Gruppe auf ihren eigenen Tönen.</li><li><b>Zusammen:</b> Alle Stimmen zusammen ergeben die Akkorde. Danach wird dazu gesungen.</li></ol><p class="small" style="margin:0 0 .4rem">Ab Level 2 bestätigt deine Lehrperson, dass du bereit bist, mit einem <b>Freigabewort</b>. Dann ist das nächste Level offen. Das Tempo startet beim Originaltempo des Lieds, du kannst es langsamer stellen. Die Metronom-Klicks helfen dir, den Puls zu halten. Alles wird auf deinem Gerät gespeichert. Die App lässt sich installieren und funktioniert auch ohne Internet.</p></div>'));
+    m.append(html('<div class="card"><h3>Was brauchst du?</h3><p class="small" style="margin:0 0 .4rem">Die App zeigt Noten, Tasten und Rhythmen. Gespielt wird auf einem dieser Instrumente:</p><ul class="small" style="margin:0;padding-left:1.2rem"><li><b>Mini-Piano</b> (zum Beispiel Casio SA-46): Spiele die Töne auf dem Instrument und schau dazu in die App.</li><li><b>Richtiges Klavier oder Keyboard:</b> Funktioniert genauso, die Töne sind dieselben.</li><li><b>Nur Tablet oder Handy:</b> Tippe die Tasten der Klaviatur direkt in der App. Ein Instrument ist dann nicht nötig.</li></ul></div>'));
     SONGS.forEach(s=>{const p=progress(s);
       const c=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">${s.em}</div><div style="flex:1;min-width:0"><h3>${s.title}</h3><div class="small muted">${s.meta}</div>
         <div class="row" style="margin-top:8px;gap:10px"><span class="dots5">${[1,2,3,4].map(n=>`<i class="${S.done[s.id+'_'+n]?'on':''}"></i>`).join('')}</span><span class="small muted">${p} von 4 Levels</span><span class="tag">Schwierigkeit ${'●'.repeat(s.diff)+'○'.repeat(3-s.diff)}</span></div></div>
@@ -1161,6 +1246,36 @@ function render(){
 }
 $('#back').onclick=()=>go(typeof view==='number'?'song':'home');
 $('#miniB').onclick=()=>go('mini');
+function openPrintDialog(){try{
+  document.querySelectorAll('.lesson:not(.open)').forEach(c=>c.querySelector('.lh').click());
+  document.querySelectorAll('.card.ex:not(.open)').forEach(c=>c.querySelector('.hd').click());
+  const items=[...document.querySelectorAll('#main .card')].filter(c=>!c.parentElement.closest('.card')).map((c,i)=>{
+    const h=c.querySelector('h1,h2,h3');return{el:c,t:(h?h.textContent:'Abschnitt '+(i+1)).trim().slice(0,70)}});
+  if(!items.length){toast('Hier gibt es nichts zu drucken.');return}
+  $('#prDlg')?.remove();
+  const dlg=html('<div id="prDlg" style="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:10px"><div style="background:#fff;border-radius:16px;max-width:1100px;width:100%;max-height:94vh;display:flex;flex-direction:column;overflow:hidden"><div style="padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="flex:1;font-size:18px">Drucken: Auswahl und Vorschau</b><button class="btn sec" data-a="all">Alle</button><button class="btn sec" data-a="none">Keine</button><button class="btn" data-a="go">🖨 Drucken</button><button class="btn sec" data-a="x">Schliessen</button></div><div style="display:flex;gap:0;flex:1;min-height:0;flex-wrap:wrap"><div class="plist" style="flex:0 0 280px;max-width:100%;overflow:auto;padding:10px 14px;border-right:1px solid #e5e7eb;max-height:40vh"></div><div class="pprev" style="flex:1;min-width:260px;overflow:auto;padding:12px;background:#f3f4f6"></div></div></div></div>');
+  document.body.append(dlg);
+  const list=$('.plist',dlg),prev=$('.pprev',dlg),boxes=[];
+  items.forEach((it,k)=>{const l=document.createElement('label');l.style.cssText='display:flex;gap:8px;align-items:flex-start;padding:6px 0;font-size:14px;cursor:pointer';
+    const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;cb.style.cssText='margin-top:3px;width:18px;height:18px;flex:none';cb.onchange=draw;boxes.push(cb);
+    l.append(cb,document.createTextNode(it.t));list.append(l)});
+  function sel(){return items.filter((it,k)=>boxes[k].checked)}
+  function draw(){prev.innerHTML='';const pg=document.createElement('div');pg.style.cssText='background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.2);padding:14px;max-width:720px;margin:0 auto;zoom:.8';
+    sel().forEach(it=>{const c=it.el.cloneNode(true);c.classList.add('prc');pg.append(c)});
+    if(!pg.children.length)pg.innerHTML='<p style="color:#6b7280">Nichts ausgewählt.</p>';prev.append(pg)}
+  draw();
+  dlg.onclick=e=>{const a=e.target.dataset&&e.target.dataset.a;if(!a)return;
+    if(a==='x'){dlg.remove()}
+    else if(a==='all'||a==='none'){boxes.forEach(b=>b.checked=a==='all');draw()}
+    else if(a==='go'){const ch=sel();if(!ch.length){toast('Bitte etwas auswählen.');return}
+      $('#printArea')?.remove();const pa=document.createElement('div');pa.id='printArea';
+      ch.forEach(it=>{const c=it.el.cloneNode(true);pa.append(c)});document.body.append(pa);document.body.classList.add('printing');
+      const t=document.title;document.title='Piano Levels – '+($('#ttl').textContent||'');
+      const done=()=>{document.body.classList.remove('printing');$('#printArea')?.remove();document.title=t};
+      window.addEventListener('afterprint',done,{once:true});
+      setTimeout(()=>{try{window.print()}catch(e){done()}},150)}};
+}catch(e){}}
+$('#prB').onclick=openPrintDialog;
 
 $('#demoB').onclick=()=>{if(DEMO){toast('Demo läuft über die Adresse (?demo).');return}S.demo=!S.demo;save();toast(S.demo?'Demo: alle Level sind offen.':'Demo aus: Level sind wieder gesperrt.');go('home')};
 /* Einstellungen */
@@ -1190,6 +1305,7 @@ function openAppFeedback(){var q=new URLSearchParams({app:'pianolevels',version:
  let depth=0,ign=0,raf=0;
  const isSub=()=>{try{return !!(view!=='home')}catch(e){return false}};
  const goBack=()=>{try{go(typeof view==='number'?'song':'home')}catch(e){}};
+ window._navPush=()=>{try{if(!depth&&isSub()){history.pushState({sub:1},'');depth=1}}catch(e){}};
  function sync(){
   raf=0;const want=isSub();
   if(want&&!depth){history.pushState({sub:1},'');depth=1}
