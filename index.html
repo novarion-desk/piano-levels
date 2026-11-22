@@ -102,6 +102,7 @@ body.beamer .score svg .ch{font-size:20px}
 .lesson .nr{width:38px;height:38px;border-radius:50%;background:var(--ind);color:#fff;font-weight:800;display:grid;place-items:center;flex:none}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
 .dots5{display:inline-flex;gap:5px}.dots5 i{width:12px;height:12px;border-radius:50%;background:#d9dcf0;display:block}.dots5 i.on{background:var(--ok)}
+details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}details.fold>summary::-webkit-details-marker{display:none}details.fold>summary h3{margin:0;flex:1}details.fold>summary::after{content:'▾';color:var(--ind);font-size:20px}details.fold[open]>summary::after{content:'▴'}details.fold[open]>summary{margin-bottom:8px}
 #printArea{display:none}
 @media print{
  @page{size:A4;margin:12mm}
@@ -959,17 +960,25 @@ function akSong(m,sg,back){
   const kb=keyboard({},Math.min(...allN)-2,Math.max(...allN)+2);$('.kbp',chart).append(kb.el);
   const evOf=(v,id)=>{const b=bars[+id.slice(1)];return v===0?b.rh.flatMap(([t,d,ch])=>ch.n.map(p=>({b:sw(t),d,p}))):b.bass.map(([t,d,p])=>({b:t,d,p}))};
   const ids=[];for(let r=0;r<60;r++)bars.forEach((_,i)=>ids.push('b'+i));   // läuft «endlos», bis Stopp
+  const rb={},rsys=[];
+  bars.forEach((b,i)=>{const evs=[];let t=0;
+    const gap=to=>{let g=to-t;while(g>1e-6){const u=g>=2?2:g>=1?1:g>=.5?.5:g;evs.push({b:t,d:u,p:null});t+=u;g-=u}};
+    b.rh.slice().sort((x,y)=>x[0]-y[0]).forEach(([st,d])=>{gap(st);evs.push({b:st,d,p:71});t=st+d});gap(4);
+    rb['r'+i]={ch:b.segs.map(x=>[x.b,x.ch.c]),v:[evs]}});
+  for(let i=0;i<bars.length;i+=4)rsys.push(bars.slice(i,i+4).map((_,k)=>'r'+(i+k)));
+  const rsc=renderScore({bars:rb,systems:rsys,flat:false,bpb:4,voices:[{label:'Rhythmus',color:'#4F46E5'}],voiceLabel:true,colorNotes:true,events:(id,v)=>rb[id].v[0],words:false});rsc.el.classList.add('nonames');
+  const rcard=html('<div class="card" style="padding:8px"><div class="small muted" style="margin:0 0 4px">Rhythmus der rechten Hand (läuft mit dem Metronom mit)</div></div>');rcard.append(rsc.el);chart.querySelector('.ach').before(rcard);
   const cells=[...chart.querySelectorAll('.acell')],status=$('.status',chart),go=$('[data-a=go]',chart);let on=false;
   const clear=()=>{cells.forEach(c=>{c.style.borderColor='var(--line)';c.querySelectorAll('.aseg').forEach(s=>s.style.background='#f4f5fb')});kb.paint({})};
   chart.onclick=e=>{const a=e.target.dataset.a;
     if(a==='go'){if(on){Eng.stop();return}Eng.ensure();on=true;go.textContent='■ Stopp';
       Eng.play({bpm:ctl.st.bpm,bpb:4,seq:ids,events:evOf,audible:[ctl.st.rh,ctl.st.lh],click:ctl.st.click,
-        onFrame:f=>{if(f.counting){status.textContent='Einzähler: '+f.countBeat;return}
-          const bi=f.slot%bars.length,b=bars[bi];status.textContent='Takt '+(bi+1)+' von '+bars.length+' · Schlag '+(Math.floor(f.bb)+1);
+        onFrame:f=>{if(f.counting){status.textContent='Einzähler: '+f.countBeat;rsc.count(f.countBeat);rsc.hideCursor();return}
+          rsc.count(null);const bi=f.slot%bars.length,b=bars[bi];rsc.cursor('r'+bi,f.bb);status.textContent='Takt '+(bi+1)+' von '+bars.length+' · Schlag '+(Math.floor(f.bb)+1);
           cells.forEach((c,i)=>{c.style.borderColor=i===bi?'var(--ind)':'var(--line)';c.querySelectorAll('.aseg').forEach((s,j)=>{const sgm=b.segs[j];s.style.background=(i===bi&&f.bb>=sgm.b&&f.bb<sgm.b+sgm.d)?'#c7d2fe':'#f4f5fb'})});
           if(ctl.st.keys){const mp={},seg=b.segs.filter(s=>s.b<=f.bb+1e-6).pop();seg.ch.n.forEach(n=>mp[n]=AKCOL[0]);
             if(lhReq||ctl.st.lh){const bs=b.bass.filter(x=>x[0]<=f.bb+1e-6).pop();if(bs)mp[bs[2]]=AKCOL[1]}kb.paint(mp)}else kb.paint({})},
-        onEnd:()=>{on=false;go.textContent='▶ Start';status.textContent='';clear()}})}
+        onEnd:()=>{on=false;go.textContent='▶ Start';status.textContent='';rsc.count(null);rsc.hideCursor();clear()}})}
     if(a==='s0'||a==='s1'){Eng.ensure();Eng.stop();const spb=60/sg.bpm,t0=Eng.ctx.currentTime+.1;
       for(let k=0;k<4;k++){Eng.click(t0+k*spb,k===0);Eng.tone(t0+k*spb,67,.3,.7);Eng.tone(t0+k*spb+spb*(a==='s1'?2/3:.5),67,.2,.6)}}};
   m.append(chart);
@@ -1267,8 +1276,8 @@ function render(){
   if(view==='home'){$('#ttl').textContent='Piano Levels';
     if(isDemo())m.append(html('<div class="card" style="background:#fef3c7;border-color:#fde68a"><b>Demo-Version:</b> Alle Level sind offen und ein Freigabewort ist nicht nötig.</div>'));
     m.append(html(`<div class="card"><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Übe zuerst Puls und Rhythmus. Wähle dann ein Lied: Jedes Lied führt über seine Rhythmus-Bausteine bis zur gemeinsamen Akkordbegleitung.</p></div>`));
-    m.append(html('<div class="card"><h3>So funktioniert Piano Levels</h3><p class="small" style="margin:0 0 .4rem">Du lernst Schritt für Schritt, ein Lied der Klasse zu spielen. Jedes Lied hat vier Level, die aufeinander aufbauen (bei Liedern mit Melodie kommt ein fünftes dazu):</p><ol class="small" style="margin:0 0 .5rem;padding-left:1.2rem"><li><b>Bausteine &amp; Rhythmus:</b> Du übst den Rhythmus des Lieds mit der <b>Rhythmussprache</b> (zum Beispiel «Schritt», «sta-ah», «Laufe») und tippst ihn im Takt mit. Das Level schliesst die App selbst ab.</li><li><b>Ein Ton:</b> Du spielst den Rhythmus auf einem einzigen Ton auf dem Piano.</li><li><b>Akkordtöne:</b> Die Klasse spielt in drei Gruppen den gleichen Rhythmus, jede Gruppe auf ihren eigenen Tönen.</li><li><b>Zusammen:</b> Alle Stimmen zusammen ergeben die Akkorde. Danach wird dazu gesungen.</li><li><b>Melodie</b> (nur bei Liedern mit Melodie): Du spielst die gesungene Melodie, die Begleitung läuft dazu.</li></ol><p class="small" style="margin:0 0 .4rem">Ab Level 2 bestätigt deine Lehrperson, dass du bereit bist, mit einem <b>Freigabewort</b>. Dann ist das nächste Level offen. Das Tempo startet beim Originaltempo des Lieds, du kannst es langsamer stellen. Die Metronom-Klicks helfen dir, den Puls zu halten. Alles wird auf deinem Gerät gespeichert. Die App lässt sich installieren und funktioniert auch ohne Internet.</p></div>'));
-    m.append(html('<div class="card"><h3>Was brauchst du?</h3><p class="small" style="margin:0 0 .4rem">Die App zeigt Noten, Tasten und Rhythmen. Gespielt wird auf einem dieser Instrumente:</p><ul class="small" style="margin:0;padding-left:1.2rem"><li><b>Mini-Piano</b> (zum Beispiel Casio SA-46): Spiele die Töne auf dem Instrument und schau dazu in die App.</li><li><b>Richtiges Klavier oder Keyboard:</b> Funktioniert genauso, die Töne sind dieselben.</li><li><b>Nur Tablet oder Handy:</b> Tippe die Tasten der Klaviatur direkt in der App. Ein Instrument ist dann nicht nötig.</li></ul></div>'));
+    m.append(html('<details class="card fold"><summary><h3>So funktioniert Piano Levels</h3></summary><p class="small" style="margin:0 0 .4rem">Du lernst Schritt für Schritt, ein Lied der Klasse zu spielen. Jedes Lied hat vier Level, die aufeinander aufbauen (bei Liedern mit Melodie kommt ein fünftes dazu):</p><ol class="small" style="margin:0 0 .5rem;padding-left:1.2rem"><li><b>Bausteine &amp; Rhythmus:</b> Du übst den Rhythmus des Lieds mit der <b>Rhythmussprache</b> (zum Beispiel «Schritt», «sta-ah», «Laufe») und tippst ihn im Takt mit. Das Level schliesst die App selbst ab.</li><li><b>Ein Ton:</b> Du spielst den Rhythmus auf einem einzigen Ton auf dem Piano.</li><li><b>Akkordtöne:</b> Die Klasse spielt in drei Gruppen den gleichen Rhythmus, jede Gruppe auf ihren eigenen Tönen.</li><li><b>Zusammen:</b> Alle Stimmen zusammen ergeben die Akkorde. Danach wird dazu gesungen.</li><li><b>Melodie</b> (nur bei Liedern mit Melodie): Du spielst die gesungene Melodie, die Begleitung läuft dazu.</li></ol><p class="small" style="margin:0 0 .4rem">Ab Level 2 bestätigt deine Lehrperson, dass du bereit bist, mit einem <b>Freigabewort</b>. Dann ist das nächste Level offen. Das Tempo startet beim Originaltempo des Lieds, du kannst es langsamer stellen. Die Metronom-Klicks helfen dir, den Puls zu halten. Alles wird auf deinem Gerät gespeichert. Die App lässt sich installieren und funktioniert auch ohne Internet.</p></details>'));
+    m.append(html('<details class="card fold"><summary><h3>Was brauchst du?</h3></summary><p class="small" style="margin:0 0 .4rem">Die App zeigt Noten, Tasten und Rhythmen. Gespielt wird auf einem dieser Instrumente:</p><ul class="small" style="margin:0;padding-left:1.2rem"><li><b>Mini-Piano</b> (zum Beispiel Casio SA-46): Spiele die Töne auf dem Instrument und schau dazu in die App.</li><li><b>Richtiges Klavier oder Keyboard:</b> Funktioniert genauso, die Töne sind dieselben.</li><li><b>Nur Tablet oder Handy:</b> Tippe die Tasten der Klaviatur direkt in der App. Ein Instrument ist dann nicht nötig.</li></ul></details>'));
     SONGS.forEach(s=>{const p=progress(s);
       const c=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">${s.em}</div><div style="flex:1;min-width:0"><h3>${s.title}</h3><div class="small muted">${s.meta}</div>
         <div class="row" style="margin-top:8px;gap:10px"><span class="dots5">${Array.from({length:NL(s)},(_,i)=>i+1).map(n=>`<i class="${S.done[s.id+'_'+n]?'on':''}"></i>`).join('')}</span><span class="small muted">${p} von ${NL(s)} Levels</span><span class="tag">Schwierigkeit ${'●'.repeat(s.diff)+'○'.repeat(3-s.diff)}</span></div></div>
@@ -1294,18 +1303,29 @@ function render(){
 }
 $('#back').onclick=()=>go(typeof view==='number'?'song':'home');
 $('#miniB').onclick=()=>go('mini');
+function printSheets(){
+  const bpb=CUR.bpb||4,out=[],cols=['#222'];
+  const card=(title,voices,bars,evf,systems)=>{const sc=renderScore({bars,systems,flat:CUR.flat,bpb,voices,voiceLabel:true,colorNotes:false,events:evf,words:true});
+    const c=document.createElement('div');c.className='card';const h=document.createElement('h3');h.textContent=title+' · '+CUR.title;c.append(h,sc.el);return c};
+  const parts=CUR.parts.filter(p=>p.label!=='Beides');
+  const hasMelBars=!!CUR.mel;
+  [0,1,2].forEach(v=>parts.forEach(P=>out.push({t:'Notenblatt: '+(v+1)+'. Stimme · '+P.label,on:v===0,el:card((v+1)+'. Stimme · '+P.label,[{label:'Stimme '+(v+1),color:'#222'}],CUR.bars,(id,vv)=>CUR.bars[id].v[v],P.systems)})));
+  parts.forEach(P=>out.push({t:'Notenblatt: alle drei Stimmen · '+P.label,on:false,el:card('Alle Stimmen · '+P.label,[0,1,2].map(i=>({label:'Stimme '+(i+1),color:'#222'})),CUR.bars,(id,v)=>CUR.bars[id].v[v],P.systems)}));
+  if(hasMelBars)out.push({t:'Notenblatt: Melodie',on:false,el:card('Melodie',[{label:'Melodie',color:'#222'}],CUR.mel,(id,v)=>CUR.mel[id].v[0],CUR.systems)});
+  return out}
 function openPrintDialog(){try{
   document.querySelectorAll('.lesson:not(.open)').forEach(c=>c.querySelector('.lh').click());
   document.querySelectorAll('.card.ex:not(.open)').forEach(c=>c.querySelector('.hd').click());
   const items=[...document.querySelectorAll('#main .card')].filter(c=>!c.parentElement.closest('.card')).map((c,i)=>{
-    const h=c.querySelector('h1,h2,h3');return{el:c,t:(h?h.textContent:'Abschnitt '+(i+1)).trim().slice(0,70)}});
+    const h=c.querySelector('h1,h2,h3');return{el:c,t:(h?h.textContent:'Abschnitt '+(i+1)).trim().slice(0,70),on:view!=='song'}});
+  if(CUR&&(view==='song'||typeof view==='number')){try{items.unshift(...printSheets())}catch(e){}}
   if(!items.length){toast('Hier gibt es nichts zu drucken.');return}
   $('#prDlg')?.remove();
   const dlg=html('<div id="prDlg" style="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:10px"><div style="background:#fff;border-radius:16px;max-width:1100px;width:100%;max-height:94vh;display:flex;flex-direction:column;overflow:hidden"><div style="padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="flex:1;font-size:18px">Drucken: Auswahl und Vorschau</b><button class="btn sec" data-a="all">Alle</button><button class="btn sec" data-a="none">Keine</button><button class="btn" data-a="go">🖨 Drucken</button><button class="btn sec" data-a="x">Schliessen</button></div><div style="display:flex;gap:0;flex:1;min-height:0;flex-wrap:wrap"><div class="plist" style="flex:0 0 280px;max-width:100%;overflow:auto;padding:10px 14px;border-right:1px solid #e5e7eb;max-height:40vh"></div><div class="pprev" style="flex:1;min-width:260px;overflow:auto;padding:12px;background:#f3f4f6"></div></div></div></div>');
   document.body.append(dlg);
   const list=$('.plist',dlg),prev=$('.pprev',dlg),boxes=[];
   items.forEach((it,k)=>{const l=document.createElement('label');l.style.cssText='display:flex;gap:8px;align-items:flex-start;padding:6px 0;font-size:14px;cursor:pointer';
-    const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;cb.style.cssText='margin-top:3px;width:18px;height:18px;flex:none';cb.onchange=draw;boxes.push(cb);
+    const cb=document.createElement('input');cb.type='checkbox';cb.checked=it.on!==false;cb.style.cssText='margin-top:3px;width:18px;height:18px;flex:none';cb.onchange=draw;boxes.push(cb);
     l.append(cb,document.createTextNode(it.t));list.append(l)});
   function sel(){return items.filter((it,k)=>boxes[k].checked)}
   function draw(){prev.innerHTML='';const pg=document.createElement('div');pg.style.cssText='background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.2);padding:14px;max-width:720px;margin:0 auto;zoom:.8';
