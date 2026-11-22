@@ -128,7 +128,7 @@ body.beamer .score svg .ch{font-size:20px}
 'use strict';
 /* ================= Konfiguration (hier anpassen) ================= */
 const CONFIG={
-  codes:{2:'ton',3:'akkord',4:'zusammen'},   // Freigabewörter für Level 2–4 (Mini-Piano-Spiel)
+  codes:{2:'ton',3:'akkord',4:'zusammen',5:'melodie'},   // Freigabewörter für Level 2–5 (Mini-Piano-Spiel)
   teacher:'lehrer',                           // Lehrercode: schaltet alles frei
   pass:70,                                     // Bestehensgrenze in % bei Tipp-Aufgaben
   approval:'teacher'                           // 'teacher' = Freigabewort der Lehrperson, 'self' = Schüler schalten selbst frei
@@ -667,9 +667,39 @@ const EXT=[
  RX3('t3','Der Schluss: sta 2 3','Der letzte Takt ist eine punktierte halbe Note: «sta 2 3».',['SSS','HS','SSS','D'],{bpm:90})
 ];
 
+/* ===== Melodien (Level 5) – nach den Notenblättern ===== */
+const R_=(b,d)=>({b,d,p:null});
+const M_=(b,d,p)=>({b,d,p});
+const melBars=(base,m)=>{const o={};Object.keys(m).forEach(id=>{o[id]={...base[id],v:[m[id]]}});return o};
+const eights=(ps,b0)=>ps.map((p,i)=>M_((b0||0)+i*.5,.5,p));
+/* Hemmige (a-Moll): Auftakt-Achtel, Achtelketten, halbe Noten */
+const HMEL={
+ b0:[{b:0,d:3.5,p:null,hid:1},M_(3.5,.5,64)],
+ b1:eights([69,72,69,72,69,72,69,64]),
+ b2:[M_(0,2,65),R_(2,1),R_(3,.5),M_(3.5,.5,62)],
+ b3:eights([67,69,67,69,67,69,67,62]),
+ b4:[M_(0,2,64),R_(2,1),R_(3,.5),M_(3.5,.5,60)],
+ b5:eights([64,65,64,65,64,65,64,60]),
+ b6:[M_(0,2,62),R_(2,1),M_(3,.5,64),M_(3.5,.5,62)],
+ b7:[M_(0,2,60),M_(2,1,59),M_(3,1,57)],
+ b8:[M_(0,2,64),R_(2,1),R_(3,.5),M_(3.5,.5,64)],
+ b9:[M_(0,2,60),M_(2,1,59),M_(3,1,56)],
+ b10:[M_(0,4,57)]
+};
+/* Scarborough Fair (d-Moll, 3/4): Melodie klingend; Haltebögen als einzelne Töne notiert */
+const SMEL={
+ f1:[M_(0,2,62),M_(2,1,62)], f2:[M_(0,1,69),M_(1,1,69),M_(2,1,69)], f3:[M_(0,1,64),M_(1,1,65),M_(2,1,64)],
+ f4:[M_(0,3,62)], f5:[M_(0,3,62)], f6:[M_(0,1,62),M_(1,1,69),M_(2,1,72)],
+ f7:[M_(0,2,74),M_(2,1,72)], f8:[M_(0,1,69),M_(1,1,71),M_(2,1,67)], f9:[M_(0,3,69)],
+ f10:[R_(0,2),M_(2,1,74)], f11:[M_(0,2,74),M_(2,1,74)], f12:[M_(0,2,72),M_(2,1,69)],
+ f13:[M_(0,1,69),M_(1,1,67),M_(2,1,65)], f14:[M_(0,1,64),M_(1,2,60)], f15:[M_(0,2,60),R_(2,1)],
+ f16:[M_(0,2,62),M_(2,1,69)], f17:[M_(0,2,67),M_(2,1,65)], f18:[M_(0,1,64),M_(1,1,62),M_(2,1,60)],
+ f19:[M_(0,3,62)], f20:[M_(0,3,62)]
+};
+
 const SONGS=[
  {id:'s1',n:1,em:'🙈',title:'Inhibitions',meta:'a-Moll · 4/4 · Achtel, Viertel und Pausen',diff:1,flat:false,
-  bars:HB,systems:HSYS,kbLo:60,kbHi:76,oneTone:64,blocks:EXS1,lines:mkLines(HSYS,['Zeile 1','Zeile 2','Zeile 3 (mit Klammern)']),elems:['whole','half','quarter','eighth'],
+  bars:HB,systems:HSYS,kbLo:60,kbHi:76,oneTone:64,blocks:EXS1,mel:melBars(HB,HMEL),melLo:55,melHi:74,melInfo:'Die Melodie startet mit einem <b>Auftakt</b> (ein Achtel vor dem ersten vollen Takt). Danach folgen Achtelketten und halbe Noten. Die Töne gehen unter das c1 bis zum g#, deshalb zeigt die Tastatur etwas mehr Tasten.',lines:mkLines(HSYS,['Zeile 1','Zeile 2','Zeile 3 (mit Klammern)']),elems:['whole','half','quarter','eighth'],
   parts:[{label:'Lied',systems:HSYS,seq:'strophe',variants:true}],
   seqs:{strophe:{label:'Strophe 1–4',ids:['b0','b1','b2','b3','b4','b5','b6','b7','b8']},
         letzte:{label:'Letzte Strophe',ids:['b1','b2','b3','b4','b5','b6','b7','b9','b10']},
@@ -679,7 +709,7 @@ const SONGS=[
   t4:'Wie im Klassenarrangement: Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – aber jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, Dm, G, C, E …).',
   t5:'Das Ziel: Jede Gruppe spielt ihre Stimme – zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:90},
  {id:'s4',n:2,em:'🌿',title:'Scarborough Fair',meta:'d-Moll · 3/4 · Viertel, halbe Noten, punktierte halbe',diff:2,flat:false,bpb:3,
-  bars:B4,systems:S4,kbLo:57,kbHi:74,oneTone:62,blocks:EXT,
+  bars:B4,systems:S4,kbLo:57,kbHi:74,oneTone:62,blocks:EXT,mel:melBars(B4,SMEL),melLo:57,melHi:76,melInfo:'Die Melodie von <b>Scarborough Fair</b> im 3/4-Takt: Zähle immer 1-2-3. Lange Töne klingen auf dem Mini-Piano nicht weiter, du schlägst sie am Taktanfang an und zählst durch.',
   lines:mkLines(S4,['Zeile 1 (Takt 1–4)','Zeile 2 (Takt 5–8)','Zeile 3 (Takt 9–12)','Zeile 4 (Takt 13–16)','Zeile 5 (Takt 17–20)']),
   elems:['quarter','half','dhalf'],
   parts:[{label:'Lied',systems:S4,seq:'ganz',variants:true}],
@@ -1101,8 +1131,8 @@ function level1(box){
 }
 
 /* ================= Level 2–4: Spielen am Mini-Piano ================= */
-const navHtml=n=>`<button class="btn sec" data-a="prev">‹ Zurück</button><button class="btn sec" data-a="next">${n>=4?'Zur Liederauswahl ›':'Weiter ›'}</button>`;
-function navClick(a,n){if(a==='prev')go(n>1?n-1:'song');else if(a==='next'){if(n>=4)go('song');else if(unlocked(n+1))go(n+1);else toast('Schliesse zuerst Level '+n+' ab.')}}
+const navHtml=n=>`<button class="btn sec" data-a="prev">‹ Zurück</button><button class="btn sec" data-a="next">${n>=NL(CUR)?'Zur Liederauswahl ›':'Weiter ›'}</button>`;
+function navClick(a,n){if(a==='prev')go(n>1?n-1:'song');else if(a==='next'){if(n>=NL(CUR))go('song');else if(unlocked(n+1))go(n+1);else toast('Schliesse zuerst Level '+n+' ab.')}}
 function approval(n,box,text){
   const self=isDemo()||(S.apr||CONFIG.approval)==='self';
   const c=html(self
@@ -1118,7 +1148,7 @@ function practicePanel(box,o){
   const sc=renderScore({bars:o.bars||CUR.bars,systems:o.systems||CUR.systems,flat:CUR.flat,bpb,voices:o.voices,voiceLabel:o.voiceLabel,colorNotes:o.colorNotes,events:o.events,words:!!o.words});
   if(!o.names)sc.el.classList.add('nonames');
   const wt=(o.toggles||[]).find(t=>t[0]==='words');if(wt&&!wt[2])sc.el.classList.add('nowords');
-  const kbw=html('<div class="hide-k"></div>'),kb=keyboard({},CUR.kbLo,CUR.kbHi);kbw.append(kb.el);
+  const kbw=html('<div class="hide-k"></div>'),kb=keyboard({},o.kbLo||CUR.kbLo,o.kbHi||CUR.kbHi);kbw.append(kb.el);
   const btns=html(`<div class="row stick"><button class="btn" data-a="go">▶ Start</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
   const ctl=controls({bpm:o.bpm||CUR.bpm,toggles:o.toggles,onChange:(k,v)=>{
       if(k==='names')sc.el.classList.toggle('nonames',!v);
@@ -1198,18 +1228,36 @@ function level4(box){
   approval(4,box,'Wenn die Klasse die Akkorde zusammen spielt, gibt es das letzte Freigabewort. Danach singen wir dazu.');
 }
 
+function level5(box){
+  box.append(html(`<div class="card"><h2>Die Melodie</h2><p>Jetzt spielst du die <b>gesungene Melodie</b>, die Klasse begleitet dazu mit den Akkorden. ${CUR.melInfo||''}</p>
+   <ol class="small"><li>Höre zuerst die Melodie (Schalter «Melodie hören»).</li><li>Spiele sie langsam auf dem Mini-Piano mit. Das Tastaturbild zeigt dir die Taste.</li><li>Schalte «Begleitung» ein und spiele zusammen mit den Akkorden. Du kannst das Tempo steigern.</li></ol></div>`));
+  const host=html('<div></div>');box.append(host);
+  const keys=Object.keys(CUR.seqs);let seqKey=keys[0];
+  const seqSel=html(`<div class="row hide-b" style="margin:4px 0"><div class="seg">${keys.map((k,i)=>`<button data-s="${k}" class="${i?'':'on'}">${CUR.seqs[k].label}</button>`).join('')}</div><span class="pill" data-b="1">📽 Beamer-Ansicht</span></div>`);
+  seqSel.onclick=e=>{const b=e.target.closest('button');if(b){seqSel.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');seqKey=b.dataset.s}
+    const p=e.target.closest('[data-b]');if(p){document.body.classList.toggle('beamer');p.classList.toggle('on');if(document.body.classList.contains('beamer')){const bb=html('<span class="pill on" id="bx" style="position:fixed;right:10px;bottom:10px;z-index:30">Beamer beenden</span>');bb.onclick=()=>{document.body.classList.remove('beamer');bb.remove();p.classList.remove('on')};document.body.append(bb)}}};
+  box.insertBefore(seqSel,host);FLAT=CUR.flat;
+  practicePanel(host,{bars:CUR.mel,voices:[{label:'Melodie',color:'#dc2626'}],voiceLabel:true,colorNotes:true,words:false,
+    events:(id,v)=>v===0?CUR.mel[id].v[0]:CUR.bars[id].v[v-1],names:true,kbLo:CUR.melLo,kbHi:CUR.melHi,
+    toggles:[['click','Klick',true],['bar','Balken',true],['keys','Taste zeigen',true],['names','Notennamen',true],['mel','Melodie hören',true],['acc','Begleitung',true]],
+    audible:st=>[st.mel,st.acc,st.acc,st.acc],seqKey:()=>seqKey,keyVoices:()=>[true]});
+  approval(5,box,'Spiele deiner Lehrperson die Melodie vor. Danach bekommst du das Freigabewort.');
+}
+
 /* ================= Übersicht & Navigation ================= */
 const LEVELS=[
  {n:1,t:'Bausteine & Rhythmus',ic:'👏',sub:()=>CUR.l2sub,f:level1},
  {n:2,t:'Ein Ton',ic:'🎯',sub:()=>'Die Rhythmen auf einem Ton spielen',f:level2},
  {n:3,t:'Akkordtöne',ic:'🎼',sub:()=>'Drei Gruppen, gleicher Rhythmus, andere Töne',f:level3},
- {n:4,t:'Zusammen',ic:'🎶',sub:()=>'Alle Stimmen = Akkorde – dann singen wir',f:level4}
+ {n:4,t:'Zusammen',ic:'🎶',sub:()=>'Alle Stimmen = Akkorde – dann singen wir',f:level4},
+ {n:5,t:'Melodie',ic:'🎤',sub:()=>'Die Melodie zur Begleitung spielen',f:level5}
 ];
 const isDemo=()=>DEMO||S.demo;
 const unlocked=n=>n===1||isDemo()||S.teacher||isDone(n-1);
+const NL=s=>s&&s.mel?5:4;
 const NLV=4;
-const progress=s=>[1,2,3,4].filter(n=>S.done[s.id+'_'+n]).length;
-function finishLevel(n,auto){S.done[doneK(n)]=true;save();toast('Level '+n+' geschafft! ✓'+(n<NLV?' Das nächste Level ist offen.':' Jetzt wird gesungen!'));if(!auto)setTimeout(()=>go('song'),900)}
+const progress=s=>Array.from({length:NL(s)},(_,i)=>i+1).filter(n=>S.done[s.id+'_'+n]).length;
+function finishLevel(n,auto){S.done[doneK(n)]=true;save();toast('Level '+n+' geschafft! ✓'+(n<NL(CUR)?' Das nächste Level ist offen.':(CUR.mel?' Alle Level geschafft!':' Jetzt wird gesungen!')));if(!auto)setTimeout(()=>go('song'),900)}
 function go(v,sid){Eng.stop();document.body.classList.remove('beamer');$('#bx')?.remove();if(sid)CUR=SONGS.find(s=>s.id===sid);view=v;render();if(window._navPush)window._navPush();window.scrollTo(0,0)}
 function render(){
   FLAT=false;
@@ -1219,11 +1267,11 @@ function render(){
   if(view==='home'){$('#ttl').textContent='Piano Levels';
     if(isDemo())m.append(html('<div class="card" style="background:#fef3c7;border-color:#fde68a"><b>Demo-Version:</b> Alle Level sind offen und ein Freigabewort ist nicht nötig.</div>'));
     m.append(html(`<div class="card"><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Übe zuerst Puls und Rhythmus. Wähle dann ein Lied: Jedes Lied führt über seine Rhythmus-Bausteine bis zur gemeinsamen Akkordbegleitung.</p></div>`));
-    m.append(html('<div class="card"><h3>So funktioniert Piano Levels</h3><p class="small" style="margin:0 0 .4rem">Du lernst Schritt für Schritt, ein Lied der Klasse zu spielen. Jedes Lied hat vier Level, die aufeinander aufbauen:</p><ol class="small" style="margin:0 0 .5rem;padding-left:1.2rem"><li><b>Bausteine &amp; Rhythmus:</b> Du übst den Rhythmus des Lieds mit der <b>Rhythmussprache</b> (zum Beispiel «Schritt», «sta-ah», «Laufe») und tippst ihn im Takt mit. Das Level schliesst die App selbst ab.</li><li><b>Ein Ton:</b> Du spielst den Rhythmus auf einem einzigen Ton auf dem Piano.</li><li><b>Akkordtöne:</b> Die Klasse spielt in drei Gruppen den gleichen Rhythmus, jede Gruppe auf ihren eigenen Tönen.</li><li><b>Zusammen:</b> Alle Stimmen zusammen ergeben die Akkorde. Danach wird dazu gesungen.</li></ol><p class="small" style="margin:0 0 .4rem">Ab Level 2 bestätigt deine Lehrperson, dass du bereit bist, mit einem <b>Freigabewort</b>. Dann ist das nächste Level offen. Das Tempo startet beim Originaltempo des Lieds, du kannst es langsamer stellen. Die Metronom-Klicks helfen dir, den Puls zu halten. Alles wird auf deinem Gerät gespeichert. Die App lässt sich installieren und funktioniert auch ohne Internet.</p></div>'));
+    m.append(html('<div class="card"><h3>So funktioniert Piano Levels</h3><p class="small" style="margin:0 0 .4rem">Du lernst Schritt für Schritt, ein Lied der Klasse zu spielen. Jedes Lied hat vier Level, die aufeinander aufbauen (bei Liedern mit Melodie kommt ein fünftes dazu):</p><ol class="small" style="margin:0 0 .5rem;padding-left:1.2rem"><li><b>Bausteine &amp; Rhythmus:</b> Du übst den Rhythmus des Lieds mit der <b>Rhythmussprache</b> (zum Beispiel «Schritt», «sta-ah», «Laufe») und tippst ihn im Takt mit. Das Level schliesst die App selbst ab.</li><li><b>Ein Ton:</b> Du spielst den Rhythmus auf einem einzigen Ton auf dem Piano.</li><li><b>Akkordtöne:</b> Die Klasse spielt in drei Gruppen den gleichen Rhythmus, jede Gruppe auf ihren eigenen Tönen.</li><li><b>Zusammen:</b> Alle Stimmen zusammen ergeben die Akkorde. Danach wird dazu gesungen.</li><li><b>Melodie</b> (nur bei Liedern mit Melodie): Du spielst die gesungene Melodie, die Begleitung läuft dazu.</li></ol><p class="small" style="margin:0 0 .4rem">Ab Level 2 bestätigt deine Lehrperson, dass du bereit bist, mit einem <b>Freigabewort</b>. Dann ist das nächste Level offen. Das Tempo startet beim Originaltempo des Lieds, du kannst es langsamer stellen. Die Metronom-Klicks helfen dir, den Puls zu halten. Alles wird auf deinem Gerät gespeichert. Die App lässt sich installieren und funktioniert auch ohne Internet.</p></div>'));
     m.append(html('<div class="card"><h3>Was brauchst du?</h3><p class="small" style="margin:0 0 .4rem">Die App zeigt Noten, Tasten und Rhythmen. Gespielt wird auf einem dieser Instrumente:</p><ul class="small" style="margin:0;padding-left:1.2rem"><li><b>Mini-Piano</b> (zum Beispiel Casio SA-46): Spiele die Töne auf dem Instrument und schau dazu in die App.</li><li><b>Richtiges Klavier oder Keyboard:</b> Funktioniert genauso, die Töne sind dieselben.</li><li><b>Nur Tablet oder Handy:</b> Tippe die Tasten der Klaviatur direkt in der App. Ein Instrument ist dann nicht nötig.</li></ul></div>'));
     SONGS.forEach(s=>{const p=progress(s);
       const c=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">${s.em}</div><div style="flex:1;min-width:0"><h3>${s.title}</h3><div class="small muted">${s.meta}</div>
-        <div class="row" style="margin-top:8px;gap:10px"><span class="dots5">${[1,2,3,4].map(n=>`<i class="${S.done[s.id+'_'+n]?'on':''}"></i>`).join('')}</span><span class="small muted">${p} von 4 Levels</span><span class="tag">Schwierigkeit ${'●'.repeat(s.diff)+'○'.repeat(3-s.diff)}</span></div></div>
+        <div class="row" style="margin-top:8px;gap:10px"><span class="dots5">${Array.from({length:NL(s)},(_,i)=>i+1).map(n=>`<i class="${S.done[s.id+'_'+n]?'on':''}"></i>`).join('')}</span><span class="small muted">${p} von ${NL(s)} Levels</span><span class="tag">Schwierigkeit ${'●'.repeat(s.diff)+'○'.repeat(3-s.diff)}</span></div></div>
         <div class="st"><span style="color:var(--ind)">${p===4?'Geschafft ✓':p?'Weiter ›':'Starten ›'}</span></div></div>`);
       c.onclick=()=>go('song',s.id);m.append(c)});
     const ak=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">🎸</div><div style="flex:1;min-width:0"><h3>Akkordprojekt</h3><div class="small muted">Dreiklänge, Umkehrungen und Lieder begleiten</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
@@ -1237,9 +1285,9 @@ function render(){
   else if(view==='rhy'){$('#ttl').textContent='Puls und Rhythmus';rhythmHub(m)}
   else if(view==='song'){$('#ttl').textContent=CUR.title;
     const p=progress(CUR);
-    m.append(html(`<div class="card"><div class="row sp"><div><h2>${CUR.title}</h2><p class="muted" style="margin:0">${CUR.meta}</p></div><span class="tag">${p} von 4 Levels</span></div>
-      <p class="small muted" style="margin:10px 0 0">Der Weg: Bausteine &amp; Rhythmus → Ein Ton → Akkordtöne → Zusammen. Puls und Notenwerte übst du vorher im Rhythmus-Block.</p></div>`));
-    LEVELS.forEach(l=>{const un=unlocked(l.n),dn=isDone(l.n);
+    m.append(html(`<div class="card"><div class="row sp"><div><h2>${CUR.title}</h2><p class="muted" style="margin:0">${CUR.meta}</p></div><span class="tag">${p} von ${NL(CUR)} Levels</span></div>
+      <p class="small muted" style="margin:10px 0 0">Der Weg: Bausteine &amp; Rhythmus → Ein Ton → Akkordtöne → Zusammen${CUR.mel?' → Melodie':''}. Puls und Notenwerte übst du vorher im Rhythmus-Block.</p></div>`));
+    LEVELS.filter(l=>l.n<=NL(CUR)).forEach(l=>{const un=unlocked(l.n),dn=isDone(l.n);
       const c=html(`<div class="card lv ${dn?'done':''} ${un?'':'locked'}"><div class="ic">${dn?'✓':l.ic}</div><div><h3>Level ${l.n} · ${l.t}</h3><div class="small muted">${l.sub()}</div></div><div class="st">${dn?'<span style="color:var(--ok)">Geschafft</span>':un?'<span style="color:var(--ind)">Öffnen ›</span>':'🔒'}</div></div>`);
       c.onclick=()=>{if(un)go(l.n);else toast('Schliesse zuerst Level '+(l.n-1)+' ab.')};m.append(c)})}
   else{const l=LEVELS[view-1];$('#ttl').textContent=CUR.title+' · Level '+l.n;l.f(m)}
