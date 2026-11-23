@@ -95,11 +95,21 @@ body.beamer .score svg .ch{font-size:20px}
 .song{display:flex;gap:16px;align-items:center;cursor:pointer}
 .song .sn{width:60px;height:60px;border-radius:16px;background:var(--ind);color:#fff;font-size:30px;font-weight:800;display:grid;place-items:center;flex:none}
 .song .st{margin-left:auto;font-weight:700;white-space:nowrap}
-.stick{position:sticky;top:60px;z-index:15;background:var(--bg);padding:8px 0;margin:0}
+.stick{position:sticky;top:var(--hh,60px);z-index:15;background:var(--bg);padding:8px 0;margin:0}
 .card .stick{background:#fff}
 .lesson>.lb{display:none;margin-top:12px}.lesson.open>.lb{display:block}
 .lesson>.lh{display:flex;align-items:center;gap:12px;cursor:pointer}
 .lesson .nr{width:38px;height:38px;border-radius:50%;background:var(--ind);color:#fff;font-weight:800;display:grid;place-items:center;flex:none}
+.selrow{display:flex;align-items:center;gap:8px;padding:4px 8px;border:1.5px solid var(--line);border-radius:12px;background:#fff;margin:4px 0}
+.selrow.on{background:var(--ind2);border-color:var(--ind)}
+.selrow label{flex:1;display:flex;align-items:center;gap:10px;font-size:16px;cursor:pointer;min-height:40px}
+.selrow input{width:22px;height:22px;accent-color:var(--ind);flex:none}
+.lp{border:1.5px solid var(--line);background:#fff;border-radius:10px;min-height:38px;padding:0 10px;font-size:15px;cursor:pointer;white-space:nowrap}
+.lp.on{background:#fef3c7;border-color:#d97706;font-weight:600}
+.selrow:not(.on) .lp{opacity:.3;pointer-events:none}
+.kbdock{position:sticky;bottom:0;z-index:14;background:var(--bg);padding:6px 0 max(6px,env(safe-area-inset-bottom));box-shadow:0 -8px 12px -10px rgba(0,0,0,.3)}
+.kbdock .kb{max-width:600px;margin:0 auto}
+.kbsp{height:max(0px,calc(100vh - 540px))}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
 .dots5{display:inline-flex;gap:5px}.dots5 i{width:12px;height:12px;border-radius:50%;background:#d9dcf0;display:block}.dots5 i.on{background:var(--ok)}
 details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}details.fold>summary::-webkit-details-marker{display:none}details.fold>summary h3{margin:0;flex:1}details.fold>summary::after{content:'▾';color:var(--ind);font-size:20px}details.fold[open]>summary::after{content:'▴'}details.fold[open]>summary{margin-bottom:8px}
@@ -115,6 +125,7 @@ details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:cen
  .lesson .lb{display:block!important}
  .lesson .lh>div:last-child{display:none!important}
  .card:empty,.card.ex .body>.card:empty{display:none!important}
+ .kbdock,.kbsp{display:none!important}
  svg{max-width:100%;height:auto}
  main{padding:0!important}
 }
@@ -126,6 +137,7 @@ details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:cen
 <main id="main"></main>
 
 <script>
+(function(){const f=()=>{const h=document.querySelector('header.top');if(h)document.documentElement.style.setProperty('--hh',h.offsetHeight+'px')};addEventListener('resize',f);addEventListener('load',f);setInterval(f,500);setTimeout(f,0)})();
 'use strict';
 /* ================= Konfiguration (hier anpassen) ================= */
 const CONFIG={
@@ -336,8 +348,10 @@ function renderScore(o){
   root.insertAdjacentHTML('beforeend','<div class="count"></div>');
   const svgsEl=[...root.querySelectorAll('svg')];
   const my=top+(nV-1)*vh+74;let lastSys=-1;
-  return{el:root,loc,
-    cursor(id,beat){const l=loc[id];if(l.sys!==lastSys){lastSys=l.sys;const r=svgsEl[l.sys].getBoundingClientRect();if(r.top<70||r.bottom>innerHeight-10)svgsEl[l.sys].scrollIntoView({block:'center',behavior:'smooth'})}svgsEl.forEach((sv,i)=>{const c=$('.cur',sv);if(i===l.sys&&l){const x=l.X(beat);c.setAttribute('x1',x);c.setAttribute('x2',x);c.style.display=''}else c.style.display='none'})},
+  return{el:root,loc,follow:true,
+    cursor(id,beat){const l=loc[id];if(l.sys!==lastSys){lastSys=l.sys;const r=svgsEl[l.sys].getBoundingClientRect();
+      if(this.follow!==false){const hd=document.querySelector('header.top'),sk=document.querySelector('.stick'),off=(hd?hd.offsetHeight:56)+(sk&&getComputedStyle(sk).position==='sticky'?sk.offsetHeight:0)+10;if(Math.abs(r.top-off)>6)window.scrollTo({top:window.scrollY+r.top-off,behavior:'smooth'})}
+      else if(r.top<70||r.bottom>innerHeight-10)svgsEl[l.sys].scrollIntoView({block:'center',behavior:'smooth'})}svgsEl.forEach((sv,i)=>{const c=$('.cur',sv);if(i===l.sys&&l){const x=l.X(beat);c.setAttribute('x1',x);c.setAttribute('x2',x);c.style.display=''}else c.style.display='none'})},
     hideCursor(){lastSys=-1;svgsEl.forEach(sv=>$('.cur',sv).style.display='none')},
     mark(id,beat,color){const l=loc[id];$('.mk',svgsEl[l.sys]).insertAdjacentHTML('beforeend',`<circle cx="${l.X(beat)}" cy="${my}" r="7" fill="${color}"/>`)},
     hl(id,bb){root.querySelectorAll('.wd').forEach(w=>w.classList.toggle('on',w.dataset.bar===id&&bb>=+w.dataset.b0&&bb<+w.dataset.b1))},
@@ -466,17 +480,23 @@ function buildEx(body,def,card,levelN,onPass){
   const sc=renderScore({bars:def.bars,systems:def.systems,voices:[{label:'',color:'#222'}],events:(id,v)=>def.bars[id].v[v],words:true,per:def.per,bpb:def.bpb,ts:def.ts});sc.el.classList.add('nonames');
   const ctl=controls({bpm:def.bpm,max:140,toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true]],onChange:(k,v)=>{if(k==='words')sc.el.classList.toggle('nowords',!v)}});
   const pad=html('<div class="pad"><div style="text-align:center">Hier tippen<span style="display:block;font-size:14px;font-weight:600;letter-spacing:0;opacity:.85;margin-top:4px">statt klatschen: tippe im Takt auf diese Fläche</span></div></div>'),res=html('<div class="res" style="display:none"></div>');
-  const btns=html(`<div class="row stick"><button class="btn sec" data-a="hear">▶ Vorhören</button><button class="btn sec" data-a="prac">Üben</button><button class="btn" data-a="test">Test</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
+  const btns=html(`<div class="row stick"><button class="btn sec" data-a="hear">▶ Vorhören</button><button class="btn sec" data-a="prac">Üben</button><button class="btn" data-a="test">Test</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button><button class="btn sec" data-a="skip" style="display:none">Weiter ▶▶</button></div>`);
   body.append(btns,html('<div class="small muted" style="margin:0 0 4px"><b>Vorhören:</b> zuhören · <b>Üben:</b> mitklatschen, keine Wertung · <b>Test:</b> mit Wertung in %</div>'),ctl.el,sc.el,pad,res);
   if(def.dikt){sc.el.style.display='none';const pr=$('[data-a=prac]',btns);if(pr)pr.style.display='none';const tb=$('[data-a=test]',btns);if(tb)tb.textContent='Nachtippen';const hb=$('[data-a=hear]',btns);if(hb)hb.textContent='▶ Rhythmus anhören'}
-  const seq=def.ids;
-  const setRun=r=>{$('[data-a=stop]',btns).style.display=r?'':'none';btns.querySelectorAll('[data-a]').forEach(b=>{if(b.dataset.a!=='stop')b.disabled=!!r})};
-  const start=mode=>{res.style.display='none';sc.clearMarks();
+  let plan=null,off=0,lastSlot=0;
+  const setRun=r=>{$('[data-a=stop]',btns).style.display=r?'':'none';$('[data-a=skip]',btns).style.display=(r&&plan)?'':'none';btns.querySelectorAll('[data-a]').forEach(b=>{if(b.dataset.a!=='stop'&&b.dataset.a!=='skip')b.disabled=!!r})};
+  const play=(mode,from)=>{
     const clk=mode==='test'&&def.noClickTest?false:ctl.st.click;
-    setRun(true);
-    Eng.play({bpm:ctl.st.bpm,bpb:def.bpb,cstep:def.cstep,seq,events:(v,id)=>def.bars[id].v[0],audible:[mode==='hear'],click:clk,tapVoice:mode==='test'?0:null,
-      onFrame:f=>{if(f.counting){sc.count(f.countBeat);sc.hideCursor();sc.clearHl()}else{sc.count(null);if(ctl.st.bar){sc.cursor(f.id,f.bb);sc.hl(f.id,f.bb)}else{sc.hideCursor();sc.clearHl()}}},
-      onEnd:(run,fin)=>{setRun(false);sc.count(null);sc.hideCursor();sc.clearHl();if(mode==='test'&&fin)showRes(run)}})};
+    Eng.play({bpm:ctl.st.bpm,bpb:def.bpb,cstep:def.cstep,seq:plan?plan.seq.slice(from):def.ids,countIn:from?false:undefined,events:(v,id)=>def.bars[id].v[0],audible:[mode==='hear'],click:clk,tapVoice:mode==='test'?0:null,
+      onFrame:f=>{if(f.counting){sc.count(f.countBeat);sc.hideCursor();sc.clearHl()}else{lastSlot=f.slot;sc.count(null);if(ctl.st.bar){sc.cursor(f.id,f.bb);sc.hl(f.id,f.bb)}else{sc.hideCursor();sc.clearHl()}}},
+      onEnd:(run,fin)=>{if(run.skipped)return;setRun(false);sc.count(null);sc.hideCursor();sc.clearHl();if(mode==='test'&&fin)showRes(run)}});
+    setRun(true)};
+  let curMode='hear';
+  const start=mode=>{res.style.display='none';sc.clearMarks();curMode=mode;off=0;
+    plan=(mode!=='test'&&def.groups&&def.groups.some(g=>g.loop))?loopPlan(def.groups):null;play(mode,0)};
+  const skip=()=>{if(!plan)return;const abs=off+lastSlot;let gi=0;plan.gs.forEach((g,i)=>{if(g<=abs)gi=i});const next=plan.gs[gi+1];
+    if(next==null){Eng.stop();return}
+    if(Eng.run)Eng.run.skipped=true;off=next;lastSlot=0;sc.hideCursor();play(curMode,next)};
   const showRes=run=>{if(def.dikt)sc.el.style.display='';const r=Eng.score(run);
     r.res.forEach(x=>sc.mark(x.x.id,x.x.b,x.dt==null?'#dc2626':x.cr>=1?'#16a34a':'#f59e0b'));
     const ok=r.pct>=CONFIG.pass,ms=Math.round(r.avg*1000);
@@ -487,7 +507,7 @@ function buildEx(body,def,card,levelN,onPass){
     if(card){$('.stars',card).textContent=starsTxt(S.best[def.id]);if(ok){card.classList.add('pass');$('.nr',card).textContent='✓'}}
     if(def.onResult)def.onResult(r,ok);
     if(ok&&onPass)onPass()};
-  btns.onclick=e=>{const a=e.target.dataset.a;if(!a)return;Eng.ensure();if(a==='stop')Eng.stop();else start(a)};
+  btns.onclick=e=>{const a=e.target.dataset.a;if(!a)return;Eng.ensure();if(a==='stop')Eng.stop();else if(a==='skip')skip();else start(a)};
   const hit=e=>{e.preventDefault();Eng.onTap(e);pad.classList.add('hit');setTimeout(()=>pad.classList.remove('hit'),90)};
   pad.addEventListener('pointerdown',hit);
 }
@@ -1089,19 +1109,23 @@ function songItems(){
   CUR.blocks.forEach(d=>items.push({id:d.id,label:d.title,grp:'Bausteine im Lied',bars:d.ids.map((k,i)=>({key:d.id+'_'+i,ev:d.bars[k].v[0],fl:{}}))}));
   CUR.lines.forEach(l=>items.push({id:CUR.id+'_'+l.k,label:l.label,grp:'Zeilen des Lieds',bars:l.ids.map(k=>{const b=CUR.bars[k],fl={};['re','fin','rs','volta'].forEach(f=>{if(b[f]!==undefined)fl[f]=b[f]});return{key:k,ev:b.v[0],fl}})}));
   return items}
+/* Schleifen: groups=[{ids,loop}] → Abspielfolge; gs = Startplatz jeder Gruppe */
+function loopPlan(groups){const seq=[],gs=[];groups.forEach(g=>{gs.push(seq.length);const n=g.loop?Math.max(2,Math.ceil(300/Math.max(1,g.ids.length))):1;for(let i=0;i<n;i++)seq.push(...g.ids)});return{seq,gs}}
+function repeatAll(seq){const n=Math.max(2,Math.ceil(400/Math.max(1,seq.length))),o=[];for(let i=0;i<n;i++)o.push(...seq);return o}
 function combine(sel,fn){const bars={},systems=[],ids=[];
   sel.forEach(it=>{const row=[];it.bars.forEach(b=>{bars[b.key]=Object.assign({ch:[],v:[fn(b.ev)]},b.fl);row.push(b.key);ids.push(b.key)});systems.push(row)});
-  return{bars,systems,ids}}
+  return{bars,systems,ids,groups:sel.map(it=>({loop:!!it.loop,ids:it.bars.map(b=>b.key)}))}}
 function selPanel(box,build,hint){
-  const items=songItems(),on=new Set([items[0].id]),groups=[...new Set(items.map(i=>i.grp))];
+  const items=songItems(),on=new Set([items[0].id]),lp=new Set(),groups=[...new Set(items.map(i=>i.grp))];
   const card=html(`<div class="card hide-b"><h3>Was möchtest du üben?</h3><p class="small muted" style="margin:0 0 6px">${hint}</p><div class="selx"></div><div class="row" style="gap:8px"><button class="btn sec" data-a="all">Alles auswählen</button><button class="btn sec" data-a="none">Nichts</button></div></div>`);
   const host=html('<div></div>');
-  const draw=()=>{$('.selx',card).innerHTML=groups.map(g=>`<div class="small muted" style="margin-top:6px">${g}</div><div class="chips">${items.filter(i=>i.grp===g).map(i=>`<span class="pill ${on.has(i.id)?'on':''}" data-id="${i.id}">${S.best[i.id]>=CONFIG.pass?'✓ ':''}${i.label}</span>`).join('')}</div>`).join('')};
-  const rebuild=()=>{Eng.stop();host.innerHTML='';const sel=items.filter(i=>on.has(i.id));
-    if(!sel.length){host.append(html('<div class="card muted">Wähle mindestens einen Baustein oder eine Zeile.</div>'));return}
+  const draw=()=>{$('.selx',card).innerHTML=groups.map(g=>`<div class="small muted" style="margin-top:6px">${g}</div>${items.filter(i=>i.grp===g).map(i=>`<div class="selrow ${on.has(i.id)?'on':''}"><label><input type="checkbox" data-id="${i.id}" ${on.has(i.id)?'checked':''}><span>${S.best[i.id]>=CONFIG.pass?'✓ ':''}${i.label}</span></label><button class="lp ${lp.has(i.id)?'on':''}" data-loop="${i.id}" title="Wiederholen: Schleife bis Stopp oder Weiter">🔁 Schleife</button></div>`).join('')}`).join('')};
+  const rebuild=()=>{Eng.stop();host.innerHTML='';const sel=items.filter(i=>on.has(i.id)).map(i=>Object.assign({},i,{loop:lp.has(i.id)}));
+    if(!sel.length){host.append(html('<div class="card muted">Setze mindestens einen Haken bei einem Baustein oder einer Zeile.</div>'));return}
     build(host,sel)};
-  card.onclick=e=>{const a=e.target.dataset.a,p=e.target.closest('[data-id]');
-    if(a==='all')items.forEach(i=>on.add(i.id));else if(a==='none')on.clear();else if(p){const id=p.dataset.id;on.has(id)?on.delete(id):on.add(id)}else return;
+  card.onchange=e=>{const id=e.target.dataset&&e.target.dataset.id;if(!id)return;e.target.checked?on.add(id):on.delete(id);draw();rebuild()};
+  card.onclick=e=>{const a=e.target.dataset.a,lb=e.target.closest('[data-loop]');
+    if(a==='all')items.forEach(i=>on.add(i.id));else if(a==='none')on.clear();else if(lb){const id=lb.dataset.loop;lp.has(id)?lp.delete(id):lp.add(id)}else return;
     draw();rebuild()};
   draw();box.append(card,host);rebuild();
   return{draw,rebuild}}
@@ -1118,10 +1142,10 @@ function level1(box){
   const checkL1=()=>{if(songItems().every(i=>S.best[i.id]>=CONFIG.pass)&&!isDone(1))finishLevel(1,true)};
   const sp=selPanel(box,(host,sel)=>{
     const c=combine(sel,ev=>mapP(ev,()=>65));
-    const def={id:'sel',bars:c.bars,ids:c.ids,systems:c.systems,bpm:CUR.bpm,bpb:CUR.bpb||4,per:4,noSave:true,
+    const def={id:'sel',bars:c.bars,ids:c.ids,groups:c.groups,systems:c.systems,bpm:CUR.bpm,bpb:CUR.bpb||4,per:4,noSave:true,
       onResult:(r,ok)=>{if(ok){sel.forEach(it=>{S.best[it.id]=Math.max(S.best[it.id]||0,r.pct)});save();sp.draw();checkL1()}}};
     const body=html('<div class="card"></div>');host.append(body);buildEx(body,def,null,1)},
-    'Tippe die Bausteine und Zeilen an. Sie werden der Reihe nach gespielt. Mit «Test» (alles richtig getippt) hakst du sie ab.');
+    'Setze einen Haken bei den Bausteinen und Zeilen, die du üben möchtest. Sie werden der Reihe nach gespielt. Mit «🔁 Schleife» wiederholt sich eine Zeile, bis du «Weiter» oder «Stopp» drückst (bei Vorhören und Üben). Mit «Test» (alles richtig getippt) hakst du sie ab.');
   const nv=html(`<div class="card hide-b"><div class="row">${navHtml(1)}</div></div>`);nv.onclick=e=>navClick(e.target.dataset.a,1);box.append(nv);
 }
 
@@ -1143,24 +1167,32 @@ function practicePanel(box,o){
   const sc=renderScore({bars:o.bars||CUR.bars,systems:o.systems||CUR.systems,flat:CUR.flat,bpb,voices:o.voices,voiceLabel:o.voiceLabel,colorNotes:o.colorNotes,events:o.events,words:!!o.words});
   if(!o.names)sc.el.classList.add('nonames');
   const wt=(o.toggles||[]).find(t=>t[0]==='words');if(wt&&!wt[2])sc.el.classList.add('nowords');
-  const kbw=html('<div class="hide-k"></div>'),kb=keyboard({},o.kbLo||CUR.kbLo,o.kbHi||CUR.kbHi);kbw.append(kb.el);
-  const btns=html(`<div class="row stick"><button class="btn" data-a="go">▶ Start</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
-  const ctl=controls({bpm:o.bpm||CUR.bpm,toggles:o.toggles,onChange:(k,v)=>{
+  const kbw=html('<div class="hide-k kbdock"></div>'),kb=keyboard({},o.kbLo||CUR.kbLo,o.kbHi||CUR.kbHi);kbw.append(kb.el);
+  const sp=html('<div class="kbsp noprint"></div>');
+  const btns=html(`<div class="row stick"><button class="btn" data-a="go">▶ Start</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button><button class="btn sec" data-a="skip" style="display:none">Weiter ▶▶</button></div>`);
+  const ctl=controls({bpm:o.bpm||CUR.bpm,toggles:(o.toggles||[]).concat([['loop','Wiederholen',false],['follow','Zeile oben halten',true]]),onChange:(k,v)=>{
       if(k==='names')sc.el.classList.toggle('nonames',!v);
       if(k==='words')sc.el.classList.toggle('nowords',!v);
+      if(k==='follow'){sc.follow=v;sp.style.display=v?'':'none'}
       if(k==='keys')kbw.style.display=v?'':'none';
       o.onToggle&&o.onToggle(k,v,ctl.st)}});
   kbw.style.display=ctl.st.keys===false?'none':'';
   const aud=()=>o.audible(ctl.st);
-  const run=()=>{Eng.ensure();Eng.play({bpm:ctl.st.bpm,bpb,seq:o.seqIds?o.seqIds():CUR.seqs[o.seqKey(ctl.st)].ids,events:(v,id)=>o.events(id,v),audible:aud(),click:ctl.st.click,
-    onFrame:f=>{if(f.counting){sc.count(f.countBeat);sc.hideCursor();return}sc.count(null);
+  let plan=null,off=0,lastSlot=0,base=[];
+  const full=from=>{let q=plan?plan.seq.slice(from):base;if(ctl.st.loop)q=q.concat(repeatAll(plan?plan.seq:base));return q};
+  const run=from=>{from=from||0;Eng.ensure();Eng.play({bpm:ctl.st.bpm,bpb,seq:full(from),countIn:from?false:undefined,events:(v,id)=>o.events(id,v),audible:aud(),click:ctl.st.click,
+    onFrame:f=>{if(f.counting){sc.count(f.countBeat);sc.hideCursor();return}lastSlot=f.slot;sc.count(null);
       if(ctl.st.bar)sc.cursor(f.id,f.bb);else sc.hideCursor();
       const map={};o.voices.forEach((vo,v)=>{if(o.keyVoices&&!o.keyVoices(ctl.st)[v])return;const e=o.events(f.id,v).find(e=>e.p!=null&&e.b<=f.bb+.001&&f.bb<e.b+e.d-.001)||o.events(f.id,v).filter(e=>e.p!=null&&e.b<=f.bb).pop();if(e)map[e.p]=vo.color});
       kb.paint(map)},
-    onEnd:()=>{btns.firstChild.style.display='';$('[data-a=stop]',btns).style.display='none';sc.count(null);sc.hideCursor();kb.paint({})}});
-    $('[data-a=go]',btns).style.display='none';$('[data-a=stop]',btns).style.display=''};
-  btns.onclick=e=>{const a=e.target.dataset.a;if(a==='go')run();if(a==='stop')Eng.stop()};
-  box.append(btns,ctl.el);if(o.extra)box.append(o.extra);box.append(sc.el,html('<div style="height:6px"></div>'),kbw);
+    onEnd:r=>{if(r&&r.skipped)return;btns.firstChild.style.display='';$('[data-a=stop]',btns).style.display='none';$('[data-a=skip]',btns).style.display='none';sc.count(null);sc.hideCursor();kb.paint({})}});
+    $('[data-a=go]',btns).style.display='none';$('[data-a=stop]',btns).style.display='';$('[data-a=skip]',btns).style.display=plan?'':'none'};
+  const start=()=>{base=o.seqIds?o.seqIds():CUR.seqs[o.seqKey(ctl.st)].ids;off=0;plan=(o.groups&&o.groups.some(g=>g.loop))?loopPlan(o.groups):null;run(0)};
+  const skip=()=>{if(!plan)return;const L=plan.seq.length,abs=off+lastSlot,pos=abs%L;let gi=0;plan.gs.forEach((g,i)=>{if(g<=pos)gi=i});const next=plan.gs[gi+1];
+    if(next==null){Eng.stop();return}
+    if(Eng.run)Eng.run.skipped=true;off=next;lastSlot=0;sc.hideCursor();run(next)};
+  btns.onclick=e=>{const a=e.target.dataset.a;if(a==='go')start();if(a==='stop')Eng.stop();if(a==='skip')skip()};
+  box.append(btns,ctl.el);if(o.extra)box.append(o.extra);box.append(sc.el,sp,kbw);
   return{ctl,sc}}
 const firstTone=v=>CUR.bars[CUR.seqs.ganz.ids[0]].v[v].find(e=>e.p!=null).p;
 const seg=(arr,cur)=>`<div class="seg">${arr.map(a=>`<button data-v="${a[0]}" class="${a[0]===cur?'on':''}">${a[1]}</button>`).join('')}</div>`;
@@ -1175,10 +1207,10 @@ function level2(box){
   box.append(vs);
   const sp=selPanel(box,(host,sel)=>{FLAT=CUR.flat;const tone=firstTone(voice),tn=nameOf(tone),c=combine(sel,ev=>mapP(ev,()=>tone));
     host.append(html(`<div class="small muted" style="margin:0 0 6px">Dein Ton: <b>${tn}</b></div>`));
-    practicePanel(host,{bars:c.bars,systems:c.systems,seqIds:()=>c.ids,voices:[{label:'Stimme '+(voice+1),color:VCOL[voice]}],voiceLabel:true,colorNotes:true,events:(id,v)=>c.bars[id].v[0],names:true,words:true,
+    practicePanel(host,{bars:c.bars,systems:c.systems,seqIds:()=>c.ids,groups:c.groups,voices:[{label:'Stimme '+(voice+1),color:VCOL[voice]}],voiceLabel:true,colorNotes:true,events:(id,v)=>c.bars[id].v[0],names:true,words:true,
       toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true],['keys','Taste zeigen',true],['names','Notennamen',true],['hear','Ton hören',false]],
       audible:st=>[st.hear],keyVoices:()=>[true]})},
-    'Wähle die Bausteine und Zeilen, die du auf dem Ton spielen möchtest.');
+    'Setze einen Haken bei den Bausteinen und Zeilen, die du auf dem Ton spielen möchtest. Mit «🔁 Schleife» wiederholt sich eine Zeile, bis du «Weiter» oder «Stopp» drückst.');
   vs.onclick=e=>{const b=e.target.closest('button');if(!b)return;vs.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');voice=+b.dataset.v;sp.rebuild()};
   approval(2,box,'Spiele deiner Lehrperson den Rhythmus auf deinem Ton vor. Du bekommst ein Freigabewort für das nächste Level.');
 }
