@@ -46,6 +46,8 @@ main{max-width:1040px;margin:0 auto;padding:16px 16px 60px}
 .seg{display:inline-flex;border:1.5px solid var(--ind);border-radius:12px;overflow:hidden}
 .seg button{font:inherit;border:0;background:#fff;color:var(--ind);padding:10px 16px;cursor:pointer;min-height:44px}
 .seg button.on{background:var(--ind);color:#fff;font-weight:700}
+.seg.wrap{display:flex;flex-wrap:wrap;gap:6px;border:0;overflow:visible;border-radius:0}
+.seg.wrap button{border:1.5px solid var(--ind);border-radius:10px;padding:8px 12px;min-height:40px}
 .score{position:relative;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 6px 2px;margin:10px 0;overflow:hidden}
 .score svg{width:100%;height:auto;display:block}
 .score svg .mus{font-family:"Noto Music","Bravura Text","Apple Symbols","Segoe UI Symbol","DejaVu Sans",serif}
@@ -586,7 +588,6 @@ const BRK=p=>[{b:0,d:.5,p,ws:[[0,1,'Hopp']]},{b:.5,d:.5,p:null,nw:1},{b:1,d:1,p:
 const TIE=(p,q)=>[{b:0,d:1.5,p,ws:[[0,1.5,'Trinidad']]},{b:1.5,d:.5,p:q,tie:1,td:2.5,ws:[[1.5,3,'sta'],[3,4,'4',1]]},{b:2,d:2,p:q,cont:1}];
 const HH=(p,q)=>[{b:0,d:2,p},{b:2,d:2,p:q}];
 const B2={};
-const S2B2=['d1','d2','a3','a4','a9','a10'];
 const add2=(id,ch,mkv,pv,x)=>{B2[id]=Object.assign({ch,v:pv.map((p,i)=>mkv(p,i))},x||{})};
 const SD=(id,ch,v,x)=>add2(id,ch,p=>T3(p),v,x);
 SD('a1',[[0,'Dm/A']],[62,65,57]);SD('a2',[[0,'Dm/A']],[62,65,57]);SD('a3',[[0,'Am']],[60,64,57]);SD('a4',[[0,'Am']],[60,64,57]);
@@ -609,11 +610,18 @@ SD('d1',[[0,'Dm']],[62,65,57]);SD('d2',[[0,'Dm']],[62,65,57]);
 add2('e1',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e2',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e3',[[0,'Dm']],p=>mk('W',p),[62,65,57],{});add2('e4',[[0,'Dm']],p=>mk('W',p),[62,65,57],{});
 add2('e5',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e6',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e7',[[0,'A7']],p=>mk('W',p),[61,67,57],{});add2('e8',[[0,'A7']],p=>mk('W',p),[61,67,57],{fin:1});
 add2('i1',[[0,'Dm/F']],p=>mk('W',p),[62,65,57],{});add2('i2',[[0,'Am/E']],p=>mk('W',p),[60,64,57],{});
-['d1','d2','e1','e2','e3','e4','e5','e6','e7','e8','i1','i2'].forEach(id=>{B2[id].raw=1});
-const S2A1=[['a1','a2','a3','a4'],['a5','a6','a7','a8']],S2A2=[['d1','d2','a3','a4'],['a9','a10']],S2C=mkRows('c',14),S2C1=S2C.slice(0,2),S2C2=S2C.slice(2),S2E=[['e1','e2','e3','e4'],['e5','e6','e7','e8']],S2I=[['i1','i2']],S2ALL=[].concat(S2A1,S2A2,S2C1,S2C2,S2I,S2E);
-const S2LN=[['Strophe 1',S2A1],['Strophe 2',S2A2],['Refrain 1. Teil',S2C1],['Refrain 2. Teil',S2C2],['Instrumental',S2I],['Coda',S2E]].map(([l,r],i)=>({k:'ln'+i,label:l,ids:[].concat(...r)}));
-const S2B=['d1','d2','a3','a4','d1','d2','a9','a10'],E2=['e1','e2','e3','e4','e5','e6','e7','e8'],I2=['i1','i2'];
 const A2=['a1','a2','a3','a4','a5','a6'],C2=[1,2,3,4,5,6,7,8,9,10,11,12,13,14].map(i=>'c'+i);
+delete B2.e8.fin;
+add2('e9',[[0,'Dm']],p=>mk('W',p),[62,65,57],{});add2('e10',[[0,'Dm']],p=>mk('W',p),[62,65,57],{});add2('e11',[[0,'Bb/D']],p=>mk('W',p),[62,65,58],{});add2('e12',[[0,'A7']],p=>BRK(p),[61,64,57],{fin:1});
+[['o1','Dm'],['o2','Dm'],['o3','Am'],['o4','Am'],['o5','Dm'],['o6','Dm'],['o7','Am'],['o8','Am'],['o9','Dm']].forEach(([id,c])=>add2(id,[[0,c]],p=>mk('W',p),c==='Dm'?[62,65,57]:[60,64,57],id==='o9'?{fin:1}:{}));
+['d1','d2','e1','e2','e3','e4','e5','e6','e7','e8','e9','e10','e11','e12','i1','i2','o1','o2','o3','o4','o5','o6','o7','o8','o9'].forEach(id=>{B2[id].raw=1});
+/* Granate: Ablauf wie im Akkordblatt, jeder Teil mit eigenen Takten (eindeutige Schlüssel, einzeln anwählbar) */
+const GA=['a1','a2','a3','a4','a5','a6','a7','a8'],GB=['d1','d2','a3','a4','d1','d2','a9','a10'],GR1=C2.slice(0,8),GR2=C2.slice(8).concat(['i1','i2']),GR4=C2.slice(8),GCO=['e1','e2','e3','e4','e5','e6','e7','e8','e9','e10','e11','e12'],GOU=['o1','o2','o3','o4','o5','o6','o7','o8','o9'];
+const S2DEF=[['Strophe 1',GA,1],['Strophe 2',GB,1],['Refrain 1',GR1,0],['Refrain 2',GR2,0],['Strophe 3',GA,1],['Strophe 4',GB,1],['Refrain 3',GR1,0],['Refrain 4',GR4,0],['Coda',GCO,0],['Refrain 5',C2,0],['Outro',GOU,0]].map(([label,src,v],n)=>{
+  const ids=src.map((o,i)=>{const k='p'+n+'_'+(i+1);B2[k]=Object.assign({},B2[o]);if(!/^(e12|o9)$/.test(o))delete B2[k].fin;return k});
+  const rows=[];for(let i=0;i<ids.length;i+=4)rows.push(ids.slice(i,i+4));
+  return{label,ids,rows,variants:!!v,seq:'p'+n,k:'ln'+n}});
+const S2ALL=[].concat(...S2DEF.map(d=>d.rows));
 const Q=(id,t,d,p,x)=>exDef(id,t,d,p,x);
 [1,2,3,4,5,6,7,8,9,10,11,12,13,14].forEach(i=>{B2['c'+i].raw=1});
 const EXQ=[
@@ -731,15 +739,9 @@ const SONGS=[
   t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, F, C, G, Dm …). Im Refrain kommen <b>Dsus4</b>, <b>Gsus4</b> und <b>Csus2</b> vor: Dort wird ein Ton des Akkords nur um eine Taste verschoben.',
   t5:'Strophe, Pre-Chorus und Refrain zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:120},
  {id:'s2',n:4,em:'💣',title:'Granate',meta:'d-Moll · 4/4 · punktierte Viertel, Haltebögen, Break',diff:2,flat:true,
-  bars:B2,systems:S2ALL,kbLo:57,kbHi:72,oneTone:62,blocks:[EXQ[0],EXQ[1],EXQ[2]],lines:S2LN,elems:['whole','half','quarter','dotted','trin','tie','brk'],
-  parts:[{label:'Strophe 1',systems:S2A1,seq:'strophe1',variants:true},{label:'Strophe 2',systems:S2A2,seq:'strophe2',variants:true},{label:'Refrain 1. Teil',systems:S2C1,seq:'refrain1',variants:false},{label:'Refrain 2. Teil',systems:S2C2,seq:'refrain2',variants:false},{label:'Instrumental',systems:S2I,seq:'instr',variants:false},{label:'Coda',systems:S2E,seq:'coda',variants:false}],
-  seqs:{strophe1:{label:'Strophe 1',ids:A2.concat(['a7','a8'])},
-        strophe2:{label:'Strophe 2',ids:S2B2},
-        refrain1:{label:'Refrain 1. Teil',ids:C2.slice(0,8)},
-        refrain2:{label:'Refrain 2. Teil',ids:C2.slice(8)},
-        instr:{label:'Instrumental',ids:I2},
-        coda:{label:'Coda',ids:E2},
-        ganz:{label:'Ganzes Lied',ids:A2.concat(['a7','a8'],S2B2,C2,I2,A2,['a7','a8'],S2B2,C2,E2)}},
+  bars:B2,systems:S2ALL,kbLo:57,kbHi:72,oneTone:62,blocks:[EXQ[0],EXQ[1],EXQ[2]],lines:S2DEF.map(d=>({k:d.k,label:d.label,ids:d.ids})),elems:['whole','half','quarter','dotted','trin','tie','brk'],
+  parts:S2DEF.map(d=>({label:d.label,systems:d.rows,seq:d.seq,variants:d.variants})),
+  seqs:Object.assign({},...S2DEF.map(d=>({[d.seq]:{label:d.label,ids:d.ids,systems:d.rows}})),{ganz:{label:'Ganzes Lied',ids:[].concat(...S2DEF.map(d=>d.ids)),systems:S2ALL}}),
   l2sub:'Neue Bausteine: punktierte Viertel, Haltebogen, Break',
   l2intro:'Dieses Lied hat einen neuen Rhythmus: <b>drei Töne pro Takt</b>, zwei lange und ein kurzer (3 + 3 + 2 Achtel). Sprich <b>«Trinidad, Trinidad, to-go»</b>. Im Refrain kommen Haltebögen dazu, am Ende jedes Teils ein <b>Break</b> mit Pausen. Was du schon kannst, ist mit ✓ markiert.',
   l3info:'<div class="card"><h3>Neu in diesem Lied: Vorzeichen</h3><p class="small" style="margin:0">Das <b>♭</b> am Anfang der Zeile steht für das ganze Lied: Jedes <b>h</b> wird zum <b>b</b> (schwarze Taste links vom h). Ein <b>♯</b> vor einer Note (hier <b>cis</b>, schwarze Taste rechts vom c) gilt nur bis zum Taktende.</p></div>',
@@ -1208,36 +1210,46 @@ function variantEvents(id,v,variant){
   const p=orig.find(e=>e.p!=null).p,bpb=CUR.bpb||4;
   return variant==='A'?tk(bpb===3?'D':'W',p):tk('S'.repeat(bpb),p)}
 function level3(box){
-  let voice=0,variant='C',pi=0;
-  const parts=CUR.parts.length>1?CUR.parts.concat([{label:'Beides',systems:CUR.systems,seq:'ganz',variants:true}]):CUR.parts;
+  let voice=0,variant='C';
+  const parts=CUR.parts,multi=parts.length>1,on=new Set([0]);
   const bpb=CUR.bpb||4;
   box.append(html(`<div class="card"><h2>Gleicher Rhythmus, andere Töne</h2><p>${CUR.t4}</p></div>`));
   const sel=html(`<div class="card hide-b"><div class="row"><div><div class="small muted">Deine Gruppe</div><div class="seg" data-g="v"><button data-v="0" class="on">Stimme 1</button><button data-v="1">Stimme 2</button><button data-v="2">Stimme 3</button></div></div>
-    ${parts.length>1?`<div><div class="small muted">Teil</div><div class="seg" data-g="p">${parts.map((p,i)=>`<button data-p="${i}" class="${i?'':'on'}">${p.label}</button>`).join('')}</div></div>`:''}
     <div class="dsel"><div class="small muted">Schwierigkeit</div><div class="seg" data-g="d"><button data-d="A">A · ${bpb===3?'«sta 2 3»':'ganze Noten'}</button><button data-d="B">B · Viertel</button><button data-d="C" class="on">C · Original</button></div></div></div>
+    ${multi?`<div style="margin-top:10px"><div class="small muted">Teile zum Üben (mehrere möglich, alle = ganzes Lied)</div><div class="seg wrap" data-g="p">${parts.map((p,i)=>`<button data-p="${i}" class="${on.has(i)?'on':''}">${p.label}</button>`).join('')}</div>
+      <div class="row" style="gap:8px;margin-top:8px"><button class="btn sec" data-a="all">Alle Teile</button><button class="btn sec" data-a="none">Nichts</button></div></div>`:''}
     <p class="small muted dtx" style="margin:8px 0 0">A: pro Takt ein Ton (${bpb===3?'punktierte halbe Note':'ganze Note'}) · B: ein Ton auf jedem Schlag · C: der echte Rhythmus aus dem Lied.</p></div>`);
   box.append(sel);
   const host=html('<div></div>');box.append(host);
-  const build=()=>{host.innerHTML='';Eng.stop();const P=parts[pi],vv=P.variants!==false;
-    sel.querySelector('.dsel').style.display=vv?'':'none';sel.querySelector('.dtx').style.display=vv?'':'none';FLAT=CUR.flat;
-    practicePanel(host,{systems:P.systems,voices:[{label:'Stimme '+(voice+1),color:VCOL[voice]}],voiceLabel:true,colorNotes:true,events:(id,v)=>variantEvents(id,voice,vv?variant:'C'),names:true,words:true,
+  const build=()=>{host.innerHTML='';Eng.stop();FLAT=CUR.flat;
+    const chosen=parts.map((p,i)=>i).filter(i=>on.has(i)).map(i=>parts[i]);
+    if(!chosen.length){host.append(html('<div class="card muted">Wähle mindestens einen Teil.</div>'));return}
+    const all=chosen.length===parts.length,vset=new Set();
+    chosen.forEach(P=>{if(P.variants!==false)P.systems.forEach(r=>r.forEach(k=>vset.add(k)))});
+    const anyV=vset.size>0;sel.querySelector('.dsel').style.display=anyV?'':'none';sel.querySelector('.dtx').style.display=anyV?'':'none';
+    const systems=all&&CUR.seqs.ganz&&CUR.seqs.ganz.systems?CUR.seqs.ganz.systems:(all?CUR.systems:[].concat(...chosen.map(P=>P.systems)));
+    const ids=all&&CUR.seqs.ganz?CUR.seqs.ganz.ids:[].concat(...chosen.map(P=>CUR.seqs[P.seq].ids));
+    practicePanel(host,{systems,voices:[{label:'Stimme '+(voice+1),color:VCOL[voice]}],voiceLabel:true,colorNotes:true,events:(id,v)=>variantEvents(id,voice,vset.has(id)?variant:'C'),names:true,words:true,
       toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true],['keys','Taste zeigen',true],['names','Notennamen',true],['hear','Ton hören',false]],
-      audible:st=>[st.hear],seqKey:()=>P.seq,keyVoices:()=>[true]})};
-  sel.onclick=e=>{const b=e.target.closest('button');if(!b)return;const g=b.parentElement;g.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-    if(b.dataset.v!=null)voice=+b.dataset.v;if(b.dataset.d)variant=b.dataset.d;if(b.dataset.p!=null)pi=+b.dataset.p;build()};
+      audible:st=>[st.hear],seqIds:()=>ids,keyVoices:()=>[true]})};
+  const drawP=()=>{const g=sel.querySelector('[data-g=p]');if(g)g.querySelectorAll('button').forEach(b=>b.classList.toggle('on',on.has(+b.dataset.p)))};
+  sel.onclick=e=>{const b=e.target.closest('button');if(!b)return;
+    if(b.dataset.a){b.dataset.a==='all'?parts.forEach((_,i)=>on.add(i)):on.clear();drawP();build();return}
+    if(b.dataset.p!=null){const i=+b.dataset.p;on.has(i)?on.delete(i):on.add(i);drawP();build();return}
+    const g=b.parentElement;g.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+    if(b.dataset.v!=null)voice=+b.dataset.v;if(b.dataset.d)variant=b.dataset.d;build()};
   build();
   approval(3,box,'Spiele deiner Lehrperson deine Stimme vor. Danach bekommst du das Freigabewort.');
 }
 function level4(box){
-  box.append(html(`<div class="card"><h2>Alle zusammen</h2><p>${CUR.t5}</p><p class="small muted">Schalte deine eigene Stimme stumm und spiele sie live. Die anderen Stimmen hörst du vom iPad. Für die Klasse: «Beamer-Ansicht».</p></div>`));
+  box.append(html(`<div class="card"><h2>Alle zusammen</h2><p>${CUR.t5}</p><p class="small muted">Hier läuft immer das ganze Lied im richtigen Ablauf. Mit den Schaltern «Stimme 1/2/3 hören» wählst du, was erklingt: alle zusammen, nur eine Stimme oder zum Beispiel nur Stimme 2 und 3. Schalte deine eigene Stimme stumm und spiele sie live. Für die Klasse: «Beamer-Ansicht».</p></div>`));
   const host=html('<div></div>');box.append(host);
-  const keys=Object.keys(CUR.seqs);let seqKey=keys[0];
-  const seqSel=html(`<div class="row hide-b" style="margin:4px 0"><div class="seg">${keys.map((k,i)=>`<button data-s="${k}" class="${i?'':'on'}">${CUR.seqs[k].label}</button>`).join('')}</div><span class="pill" data-b="1">📽 Beamer-Ansicht</span></div>`);
+  const seqKey=CUR.seqs.ganz?'ganz':Object.keys(CUR.seqs)[0];
+  const seqSel=html(`<div class="row hide-b" style="margin:4px 0"><span class="pill" data-b="1">📽 Beamer-Ansicht</span></div>`);
   const voices=[0,1,2].map(i=>({label:'Stimme '+(i+1),color:VCOL[i]}));
-  seqSel.onclick=e=>{const b=e.target.closest('button');if(b){seqSel.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');seqKey=b.dataset.s}
-    const p=e.target.closest('[data-b]');if(p){document.body.classList.toggle('beamer');p.classList.toggle('on');if(document.body.classList.contains('beamer')){const bb=html('<span class="pill on" id="bx" style="position:fixed;right:10px;bottom:10px;z-index:30">Beamer beenden</span>');bb.onclick=()=>{document.body.classList.remove('beamer');bb.remove();p.classList.remove('on')};document.body.append(bb)}}};
+  seqSel.onclick=e=>{const p=e.target.closest('[data-b]');if(p){document.body.classList.toggle('beamer');p.classList.toggle('on');if(document.body.classList.contains('beamer')){const bb=html('<span class="pill on" id="bx" style="position:fixed;right:10px;bottom:10px;z-index:30">Beamer beenden</span>');bb.onclick=()=>{document.body.classList.remove('beamer');bb.remove();p.classList.remove('on')};document.body.append(bb)}}};
   box.insertBefore(seqSel,host);FLAT=CUR.flat;
-  practicePanel(host,{voices,colorNotes:true,events:(id,v)=>CUR.bars[id].v[v],names:false,
+  practicePanel(host,{systems:CUR.seqs[seqKey].systems,voices,colorNotes:true,events:(id,v)=>CUR.bars[id].v[v],names:false,
     toggles:[['click','Klick',true],['bar','Balken',true],['keys','Tasten zeigen',true],['v0','Stimme 1 hören',true],['v1','Stimme 2 hören',true],['v2','Stimme 3 hören',true]],
     audible:st=>[st.v0,st.v1,st.v2],seqKey:()=>seqKey,keyVoices:()=>[true,true,true]});
   approval(4,box,'Wenn die Klasse die Akkorde zusammen spielt, gibt es das letzte Freigabewort. Danach singen wir dazu.');
@@ -1248,7 +1260,7 @@ function level5(box){
    <ol class="small"><li>Höre zuerst die Melodie (Schalter «Melodie hören»).</li><li>Spiele sie langsam auf dem Mini-Piano mit. Das Tastaturbild zeigt dir die Taste.</li><li>Schalte «Begleitung» ein und spiele zusammen mit den Akkorden. Du kannst das Tempo steigern.</li></ol></div>`));
   const host=html('<div></div>');box.append(host);
   const keys=Object.keys(CUR.seqs);let seqKey=keys[0];
-  const seqSel=html(`<div class="row hide-b" style="margin:4px 0"><div class="seg">${keys.map((k,i)=>`<button data-s="${k}" class="${i?'':'on'}">${CUR.seqs[k].label}</button>`).join('')}</div><span class="pill" data-b="1">📽 Beamer-Ansicht</span></div>`);
+  const seqSel=html(`<div class="row hide-b" style="margin:4px 0"><div class="seg${keys.length>6?' wrap':''}">${keys.map((k,i)=>`<button data-s="${k}" class="${i?'':'on'}">${CUR.seqs[k].label}</button>`).join('')}</div><span class="pill" data-b="1">📽 Beamer-Ansicht</span></div>`);
   seqSel.onclick=e=>{const b=e.target.closest('button');if(b){seqSel.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');seqKey=b.dataset.s}
     const p=e.target.closest('[data-b]');if(p){document.body.classList.toggle('beamer');p.classList.toggle('on');if(document.body.classList.contains('beamer')){const bb=html('<span class="pill on" id="bx" style="position:fixed;right:10px;bottom:10px;z-index:30">Beamer beenden</span>');bb.onclick=()=>{document.body.classList.remove('beamer');bb.remove();p.classList.remove('on')};document.body.append(bb)}}};
   box.insertBefore(seqSel,host);FLAT=CUR.flat;
