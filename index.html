@@ -586,6 +586,7 @@ const BRK=p=>[{b:0,d:.5,p,ws:[[0,1,'Hopp']]},{b:.5,d:.5,p:null,nw:1},{b:1,d:1,p:
 const TIE=(p,q)=>[{b:0,d:1.5,p,ws:[[0,1.5,'Trinidad']]},{b:1.5,d:.5,p:q,tie:1,td:2.5,ws:[[1.5,3,'sta'],[3,4,'4',1]]},{b:2,d:2,p:q,cont:1}];
 const HH=(p,q)=>[{b:0,d:2,p},{b:2,d:2,p:q}];
 const B2={};
+const S2B2=['d1','d2','a3','a4','a9','a10'];
 const add2=(id,ch,mkv,pv,x)=>{B2[id]=Object.assign({ch,v:pv.map((p,i)=>mkv(p,i))},x||{})};
 const SD=(id,ch,v,x)=>add2(id,ch,p=>T3(p),v,x);
 SD('a1',[[0,'Dm/A']],[62,65,57]);SD('a2',[[0,'Dm/A']],[62,65,57]);SD('a3',[[0,'Am']],[60,64,57]);SD('a4',[[0,'Am']],[60,64,57]);
@@ -609,7 +610,8 @@ add2('e1',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e2',[[0,'Gm']],p=>mk('W',
 add2('e5',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e6',[[0,'Gm']],p=>mk('W',p),[62,67,58],{});add2('e7',[[0,'A7']],p=>mk('W',p),[61,67,57],{});add2('e8',[[0,'A7']],p=>mk('W',p),[61,67,57],{fin:1});
 add2('i1',[[0,'Dm/F']],p=>mk('W',p),[62,65,57],{});add2('i2',[[0,'Am/E']],p=>mk('W',p),[60,64,57],{});
 ['d1','d2','e1','e2','e3','e4','e5','e6','e7','e8','i1','i2'].forEach(id=>{B2[id].raw=1});
-const S2A=[['a1','a2','a3','a4'],['a5','a6','a7','a8'],['d1','d2'],['a9','a10']],S2C=mkRows('c',14),S2E=[['e1','e2','e3','e4'],['e5','e6','e7','e8']],S2I=[['i1','i2']];
+const S2A1=[['a1','a2','a3','a4'],['a5','a6','a7','a8']],S2A2=[['d1','d2','a3','a4'],['a9','a10']],S2C=mkRows('c',14),S2C1=S2C.slice(0,2),S2C2=S2C.slice(2),S2E=[['e1','e2','e3','e4'],['e5','e6','e7','e8']],S2I=[['i1','i2']],S2ALL=[].concat(S2A1,S2A2,S2C1,S2C2,S2I,S2E);
+const S2LN=[['Strophe 1',S2A1],['Strophe 2',S2A2],['Refrain 1. Teil',S2C1],['Refrain 2. Teil',S2C2],['Instrumental',S2I],['Coda',S2E]].map(([l,r],i)=>({k:'ln'+i,label:l,ids:[].concat(...r)}));
 const S2B=['d1','d2','a3','a4','d1','d2','a9','a10'],E2=['e1','e2','e3','e4','e5','e6','e7','e8'],I2=['i1','i2'];
 const A2=['a1','a2','a3','a4','a5','a6'],C2=[1,2,3,4,5,6,7,8,9,10,11,12,13,14].map(i=>'c'+i);
 const Q=(id,t,d,p,x)=>exDef(id,t,d,p,x);
@@ -729,13 +731,15 @@ const SONGS=[
   t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, F, C, G, Dm …). Im Refrain kommen <b>Dsus4</b>, <b>Gsus4</b> und <b>Csus2</b> vor: Dort wird ein Ton des Akkords nur um eine Taste verschoben.',
   t5:'Strophe, Pre-Chorus und Refrain zusammen: Jede Gruppe spielt ihre Stimme, zusammen klingen die <b>Akkorde</b>. Danach singen wir dazu.',bpm:120},
  {id:'s2',n:4,em:'💣',title:'Granate',meta:'d-Moll · 4/4 · punktierte Viertel, Haltebögen, Break',diff:2,flat:true,
-  bars:B2,systems:S2A.concat(S2C,S2E,S2I),kbLo:57,kbHi:72,oneTone:62,blocks:[EXQ[0],EXQ[1],EXQ[2]],lines:mkLines(S2A.concat(S2C,S2E,S2I),['Strophe 1','Strophe 2','Strophe 3 (Dm)','Strophe 4','Refrain 1','Refrain 2','Refrain 3','Refrain 4','Coda 1','Coda 2','Instrumental']),elems:['whole','half','quarter','dotted','trin','tie','brk'],
-  parts:[{label:'Strophe',systems:S2A,seq:'strophe',variants:true},{label:'Refrain',systems:S2C,seq:'refrain',variants:false},{label:'Instrumental',systems:S2I,seq:'instr',variants:false},{label:'Coda',systems:S2E,seq:'coda',variants:false}],
-  seqs:{strophe:{label:'Strophe',ids:A2.concat(['a7','a8'],S2B)},
-        refrain:{label:'Refrain',ids:C2},
+  bars:B2,systems:S2ALL,kbLo:57,kbHi:72,oneTone:62,blocks:[EXQ[0],EXQ[1],EXQ[2]],lines:S2LN,elems:['whole','half','quarter','dotted','trin','tie','brk'],
+  parts:[{label:'Strophe 1',systems:S2A1,seq:'strophe1',variants:true},{label:'Strophe 2',systems:S2A2,seq:'strophe2',variants:true},{label:'Refrain 1. Teil',systems:S2C1,seq:'refrain1',variants:false},{label:'Refrain 2. Teil',systems:S2C2,seq:'refrain2',variants:false},{label:'Instrumental',systems:S2I,seq:'instr',variants:false},{label:'Coda',systems:S2E,seq:'coda',variants:false}],
+  seqs:{strophe1:{label:'Strophe 1',ids:A2.concat(['a7','a8'])},
+        strophe2:{label:'Strophe 2',ids:S2B2},
+        refrain1:{label:'Refrain 1. Teil',ids:C2.slice(0,8)},
+        refrain2:{label:'Refrain 2. Teil',ids:C2.slice(8)},
         instr:{label:'Instrumental',ids:I2},
         coda:{label:'Coda',ids:E2},
-        ganz:{label:'Ganzes Lied',ids:A2.concat(['a7','a8'],S2B,C2,I2,A2,['a7','a8'],S2B,C2,E2)}},
+        ganz:{label:'Ganzes Lied',ids:A2.concat(['a7','a8'],S2B2,C2,I2,A2,['a7','a8'],S2B2,C2,E2)}},
   l2sub:'Neue Bausteine: punktierte Viertel, Haltebogen, Break',
   l2intro:'Dieses Lied hat einen neuen Rhythmus: <b>drei Töne pro Takt</b>, zwei lange und ein kurzer (3 + 3 + 2 Achtel). Sprich <b>«Trinidad, Trinidad, to-go»</b>. Im Refrain kommen Haltebögen dazu, am Ende jedes Teils ein <b>Break</b> mit Pausen. Was du schon kannst, ist mit ✓ markiert.',
   l3info:'<div class="card"><h3>Neu in diesem Lied: Vorzeichen</h3><p class="small" style="margin:0">Das <b>♭</b> am Anfang der Zeile steht für das ganze Lied: Jedes <b>h</b> wird zum <b>b</b> (schwarze Taste links vom h). Ein <b>♯</b> vor einer Note (hier <b>cis</b>, schwarze Taste rechts vom c) gilt nur bis zum Taktende.</p></div>',
