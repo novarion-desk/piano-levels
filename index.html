@@ -704,13 +704,25 @@ const SMEL={
  f19:[M_(0,3,62)], f20:[M_(0,3,62)]
 };
 
+/* Teile mit eigenen Takten: jede Instanz bekommt eindeutige Schlüssel (Kopie der Takte), damit Markierung und Cursor stimmen */
+function mkParts(B,defs,pre){return defs.map(([label,rows,seq,v],n)=>{const map={},cl=id=>{if(!map[id]){const k=pre+n+'_'+id;B[k]=Object.assign({},B[id]);map[id]=k}return map[id]};
+  const r2=rows.map(r=>r.map(cl)),ids=(seq||[].concat(...rows)).map(cl);
+  return{label,rows:r2,ids,variants:v!==false,seq:pre+n}})}
+function partsSeqs(P,sep){const o={};P.forEach(d=>{o[d.seq]={label:d.label,ids:d.ids,systems:d.rows}});o.ganz={label:'Ganzes Lied',ids:[].concat(...P.map(d=>d.ids)),systems:[].concat(...P.map(d=>d.rows))};return o}
+const HPARTS=mkParts(HB,[['Intro',[['b0']]],
+  ['Strophe 1',[['b1','b2','b3','b4'],['b5','b6','b7','b8']]],['Strophe 2',[['b1','b2','b3','b4'],['b5','b6','b7','b8']]],['Strophe 3',[['b1','b2','b3','b4'],['b5','b6','b7','b8']]],['Strophe 4',[['b1','b2','b3','b4'],['b5','b6','b7','b8']]],
+  ['Letzte Strophe',[['b1','b2','b3','b4'],['b5','b6','b7','b9'],['b10']],['b1','b2','b3','b4','b5','b6','b7','b9','b10']]],'h');
+const APARTS=mkParts(B3,[['Intro',S3S],
+  ...[1,2,3,4].reduce((a,i)=>a.concat([['Pre-Chorus '+i,S3P,P3SEQ],['Strophe '+i,S3S]]),[]),
+  ['Refrain 1. Teil',[['c1','c2','c3','c4'],['c5','c6','c7','c8']],CH3.concat(CH3)],
+  ['Refrain 2. Teil',[['d1','d2','d3','d4'],['e1','e2','e3','e4']],CD3]],'t');
+const SPARTS=S4.map((r,i)=>({label:'Zeile '+(i+1),rows:[r],ids:r,variants:true,seq:'z'+(i+1)}));
+const SSEQS=Object.assign({},...SPARTS.map(d=>({[d.seq]:{label:d.label,ids:d.ids}})),{ganz:{label:'Ganzes Lied',ids:F4}});
 const SONGS=[
  {id:'s1',n:1,em:'🙈',title:'Inhibitions',meta:'a-Moll · 4/4 · Achtel, Viertel und Pausen',diff:1,flat:false,
   bars:HB,systems:HSYS,kbLo:60,kbHi:76,oneTone:64,blocks:EXS1,lines:mkLines(HSYS,['Zeile 1','Zeile 2','Zeile 3 (mit Klammern)']),elems:['whole','half','quarter','eighth'],
-  parts:[{label:'Lied',systems:HSYS,seq:'strophe',variants:true}],
-  seqs:{strophe:{label:'Strophe 1–4',ids:['b0','b1','b2','b3','b4','b5','b6','b7','b8']},
-        letzte:{label:'Letzte Strophe',ids:['b1','b2','b3','b4','b5','b6','b7','b9','b10']},
-        ganz:{label:'Ganzes Lied',ids:[].concat(['b0'],...[1,2,3,4].map(()=>['b1','b2','b3','b4','b5','b6','b7','b8']),['b1','b2','b3','b4','b5','b6','b7','b9','b10'])}},
+  parts:HPARTS.map(d=>({label:d.label,systems:d.rows,seq:d.seq,variants:d.variants})),
+  seqs:partsSeqs(HPARTS),
   l2sub:'Notenwerte lesen und tippen (Rhythmus des Arrangements)',
   l2intro:'Noten zeigen, <b>wie lange</b> ein Ton dauert (in Schlägen). Mit der <b>Rhythmussprache</b> kannst du jeden Rhythmus sprechen, bevor du ihn klatschst oder spielst:',
   t4:'Wie im Klassenarrangement: Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – aber jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, Dm, G, C, E …).',
@@ -719,8 +731,8 @@ const SONGS=[
   bars:B4,systems:S4,kbLo:57,kbHi:74,oneTone:62,blocks:EXT,mel:melBars(B4,SMEL),melLo:57,melHi:76,melInfo:'Die Melodie von <b>Scarborough Fair</b> im 3/4-Takt: Zähle immer 1-2-3. Lange Töne klingen auf dem Mini-Piano nicht weiter, du schlägst sie am Taktanfang an und zählst durch.',
   lines:mkLines(S4,['Zeile 1 (Takt 1–4)','Zeile 2 (Takt 5–8)','Zeile 3 (Takt 9–12)','Zeile 4 (Takt 13–16)','Zeile 5 (Takt 17–20)']),
   elems:['quarter','half','dhalf'],
-  parts:[{label:'Lied',systems:S4,seq:'ganz',variants:true}],
-  seqs:{ganz:{label:'Ganzes Lied',ids:F4}},
+  parts:SPARTS.map(d=>({label:d.label,systems:d.rows,seq:d.seq,variants:d.variants})),
+  seqs:SSEQS,
   l2sub:'Neu: der 3/4-Takt mit halben und punktierten halben Noten',
   l2intro:'Dieses Lied steht im <b>3/4-Takt</b>: Jeder Takt hat <b>drei Schläge</b> (1-2-3). Meistens spielst du drei Viertel («Schritt, Schritt, Schritt»). An manchen Stellen kommt eine halbe Note dazu («sta-ah, Schritt») und am Schluss eine punktierte halbe Note («sta 2 3»). Was du schon kannst, ist mit ✓ markiert.',
   t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Dm, C, F, G). Zähle im Kopf immer <b>1-2-3</b>.',
@@ -729,11 +741,8 @@ const SONGS=[
   bars:B3,systems:S3S.concat(S3P,S3C),kbLo:57,kbHi:74,oneTone:64,blocks:EXM,
   lines:mkLines(S3S.concat(S3P,S3C),['Strophe (Takt 1–4)','Pre-Chorus (Takt 5–8)','Pre-Chorus Schluss (Takt 9)','Refrain 1 (Takt 10–13)','Refrain 2 (Takt 14–17)','Refrain 3 (Takt 18–21)','Refrain 4 (Takt 22–25)']),
   elems:['half','dotted','tieq'],
-  parts:[{label:'Strophe',systems:S3S,seq:'strophe',variants:true},{label:'Pre-Chorus',systems:S3P,seq:'pre',variants:true},{label:'Refrain',systems:S3C,seq:'refrain',variants:true}],
-  seqs:{strophe:{label:'Strophe',ids:S3SEQ},
-        pre:{label:'Pre-Chorus',ids:P3SEQ},
-        refrain:{label:'Refrain',ids:C3SEQ},
-        ganz:{label:'Ganzes Lied',ids:S3SEQ.concat(S3SEQ,P3SEQ,C3SEQ)}},
+  parts:APARTS.map(d=>({label:d.label,systems:d.rows,seq:d.seq,variants:d.variants})),
+  seqs:partsSeqs(APARTS),
   l2sub:'Neue Bausteine: Achtel mit Haltebogen, halbe Noten',
   l2intro:'Die Strophe hat den Rhythmus <b>«Trinidad, Trinidad, to-go»</b>, aber anders geschrieben: eine punktierte Viertel, dann eine Achtel mit <b>Haltebogen</b> zur Viertel, dann eine Viertel. Im Pre-Chorus und im Refrain spielst du <b>halbe Noten</b> («sta-ah»). Was du schon kannst, ist mit ✓ markiert.',
   t4:'Die Klasse spielt in <b>drei Gruppen</b> denselben Rhythmus – jede Gruppe auf ihren eigenen Tönen. Zusammen ergibt das die <b>Akkorde</b> (Am, F, C, G, Dm …). Im Refrain kommen <b>Dsus4</b>, <b>Gsus4</b> und <b>Csus2</b> vor: Dort wird ein Ton des Akkords nur um eine Taste verschoben.',
@@ -1259,10 +1268,9 @@ function level5(box){
   box.append(html(`<div class="card"><h2>Die Melodie</h2><p>Jetzt spielst du die <b>gesungene Melodie</b>, die Klasse begleitet dazu mit den Akkorden. ${CUR.melInfo||''}</p>
    <ol class="small"><li>Höre zuerst die Melodie (Schalter «Melodie hören»).</li><li>Spiele sie langsam auf dem Mini-Piano mit. Das Tastaturbild zeigt dir die Taste.</li><li>Schalte «Begleitung» ein und spiele zusammen mit den Akkorden. Du kannst das Tempo steigern.</li></ol></div>`));
   const host=html('<div></div>');box.append(host);
-  const keys=Object.keys(CUR.seqs);let seqKey=keys[0];
-  const seqSel=html(`<div class="row hide-b" style="margin:4px 0"><div class="seg${keys.length>6?' wrap':''}">${keys.map((k,i)=>`<button data-s="${k}" class="${i?'':'on'}">${CUR.seqs[k].label}</button>`).join('')}</div><span class="pill" data-b="1">📽 Beamer-Ansicht</span></div>`);
-  seqSel.onclick=e=>{const b=e.target.closest('button');if(b){seqSel.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');seqKey=b.dataset.s}
-    const p=e.target.closest('[data-b]');if(p){document.body.classList.toggle('beamer');p.classList.toggle('on');if(document.body.classList.contains('beamer')){const bb=html('<span class="pill on" id="bx" style="position:fixed;right:10px;bottom:10px;z-index:30">Beamer beenden</span>');bb.onclick=()=>{document.body.classList.remove('beamer');bb.remove();p.classList.remove('on')};document.body.append(bb)}}};
+  const seqKey=CUR.seqs.ganz?'ganz':Object.keys(CUR.seqs)[0];
+  const seqSel=html(`<div class="row hide-b" style="margin:4px 0"><span class="pill" data-b="1">📽 Beamer-Ansicht</span></div>`);
+  seqSel.onclick=e=>{const b=e.target.closest('button');const p=e.target.closest('[data-b]');if(p){document.body.classList.toggle('beamer');p.classList.toggle('on');if(document.body.classList.contains('beamer')){const bb=html('<span class="pill on" id="bx" style="position:fixed;right:10px;bottom:10px;z-index:30">Beamer beenden</span>');bb.onclick=()=>{document.body.classList.remove('beamer');bb.remove();p.classList.remove('on')};document.body.append(bb)}}};
   box.insertBefore(seqSel,host);FLAT=CUR.flat;
   practicePanel(host,{bars:CUR.mel,voices:[{label:'Melodie',color:'#dc2626'}],voiceLabel:true,colorNotes:true,words:false,
     events:(id,v)=>v===0?CUR.mel[id].v[0]:CUR.bars[id].v[v-1],names:true,kbLo:CUR.melLo,kbHi:CUR.melHi,
@@ -1327,9 +1335,9 @@ function printSheets(){
     const c=document.createElement('div');c.className='card';const h=document.createElement('h3');h.textContent=title+' · '+CUR.title;c.append(h,sc.el);return c};
   const parts=CUR.parts.filter(p=>p.label!=='Beides');
   const hasMelBars=!!CUR.mel;
-  [0,1,2].forEach(v=>parts.forEach(P=>out.push({t:'Notenblatt: '+(v+1)+'. Stimme · '+P.label,on:v===0,el:card((v+1)+'. Stimme · '+P.label,[{label:'Stimme '+(v+1),color:'#222'}],CUR.bars,(id,vv)=>CUR.bars[id].v[v],P.systems)})));
-  parts.forEach(P=>out.push({t:'Notenblatt: alle drei Stimmen · '+P.label,on:false,el:card('Alle Stimmen · '+P.label,[0,1,2].map(i=>({label:'Stimme '+(i+1),color:'#222'})),CUR.bars,(id,v)=>CUR.bars[id].v[v],P.systems)}));
-  if(hasMelBars)out.push({t:'Notenblatt: Melodie',on:false,el:card('Melodie',[{label:'Melodie',color:'#222'}],CUR.mel,(id,v)=>CUR.mel[id].v[0],CUR.systems)});
+  [0,1,2].forEach(v=>parts.forEach(P=>out.push({v:String(v+1),t:'Notenblatt: '+(v+1)+'. Stimme · '+P.label,on:v===0,el:card((v+1)+'. Stimme · '+P.label,[{label:'Stimme '+(v+1),color:'#222'}],CUR.bars,(id,vv)=>CUR.bars[id].v[v],P.systems)})));
+  parts.forEach(P=>out.push({v:'a',t:'Notenblatt: alle drei Stimmen · '+P.label,on:false,el:card('Alle Stimmen · '+P.label,[0,1,2].map(i=>({label:'Stimme '+(i+1),color:'#222'})),CUR.bars,(id,v)=>CUR.bars[id].v[v],P.systems)}));
+  if(hasMelBars)out.push({v:'m',t:'Notenblatt: Melodie',on:false,el:card('Melodie',[{label:'Melodie',color:'#222'}],CUR.mel,(id,v)=>CUR.mel[id].v[0],CUR.systems)});
   return out}
 function openPrintDialog(){try{
   document.querySelectorAll('.lesson:not(.open)').forEach(c=>c.querySelector('.lh').click());
@@ -1339,7 +1347,7 @@ function openPrintDialog(){try{
   if(CUR&&(view==='song'||typeof view==='number')){try{items.unshift(...printSheets())}catch(e){}}
   if(!items.length){toast('Hier gibt es nichts zu drucken.');return}
   $('#prDlg')?.remove();
-  const dlg=html('<div id="prDlg" style="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:10px"><div style="background:#fff;border-radius:16px;max-width:1100px;width:100%;max-height:94vh;display:flex;flex-direction:column;overflow:hidden"><div style="padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="flex:1;font-size:18px">Drucken: Auswahl und Vorschau</b><button class="btn sec" data-a="all">Alle</button><button class="btn sec" data-a="none">Keine</button><button class="btn" data-a="go">🖨 Drucken</button><button class="btn sec" data-a="x">Schliessen</button></div><div style="display:flex;gap:0;flex:1;min-height:0;flex-wrap:wrap"><div class="plist" style="flex:0 0 280px;max-width:100%;overflow:auto;padding:10px 14px;border-right:1px solid #e5e7eb;max-height:40vh"></div><div class="pprev" style="flex:1;min-width:260px;overflow:auto;padding:12px;background:#f3f4f6"></div></div></div></div>');
+  const dlg=html('<div id="prDlg" style="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:10px"><div style="background:#fff;border-radius:16px;max-width:1100px;width:100%;max-height:94vh;display:flex;flex-direction:column;overflow:hidden"><div style="padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="flex:1;font-size:18px">Drucken: Auswahl und Vorschau</b><button class="btn sec" data-a="all">Alle</button><button class="btn sec" data-a="none">Keine</button><button class="btn" data-a="go">🖨 Drucken</button><button class="btn" data-a="pdf">📄 Als PDF speichern</button><button class="btn sec" data-a="x">Schliessen</button></div><div class="pvoice" style="padding:8px 16px;border-bottom:1px solid #e5e7eb;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="small muted">Noten für:</span><button class="btn sec" data-v="1">Stimme 1</button><button class="btn sec" data-v="2">Stimme 2</button><button class="btn sec" data-v="3">Stimme 3</button><button class="btn sec" data-v="a">Alle Stimmen</button><button class="btn sec" data-v="m" style="display:none">Melodie</button></div><div style="display:flex;gap:0;flex:1;min-height:0;flex-wrap:wrap"><div class="plist" style="flex:0 0 280px;max-width:100%;overflow:auto;padding:10px 14px;border-right:1px solid #e5e7eb;max-height:40vh"></div><div class="pprev" style="flex:1;min-width:260px;overflow:auto;padding:12px;background:#f3f4f6"></div></div></div></div>');
   document.body.append(dlg);
   const list=$('.plist',dlg),prev=$('.pprev',dlg),boxes=[];
   items.forEach((it,k)=>{const l=document.createElement('label');l.style.cssText='display:flex;gap:8px;align-items:flex-start;padding:6px 0;font-size:14px;cursor:pointer';
@@ -1350,16 +1358,23 @@ function openPrintDialog(){try{
     sel().forEach(it=>{const c=it.el.cloneNode(true);c.classList.add('prc');pg.append(c)});
     if(!pg.children.length)pg.innerHTML='<p style="color:#6b7280">Nichts ausgewählt.</p>';prev.append(pg)}
   draw();
-  dlg.onclick=e=>{const a=e.target.dataset&&e.target.dataset.a;if(!a)return;
+  if(items.some(it=>it.v==='m'))$('[data-v=m]',dlg).style.display='';
+  let vName='';
+  const doPrint=pdf=>{const ch=sel();if(!ch.length){toast('Bitte etwas auswählen.');return}
+    $('#printArea')?.remove();const pa=document.createElement('div');pa.id='printArea';
+    ch.forEach(it=>{const c=it.el.cloneNode(true);pa.append(c)});document.body.append(pa);document.body.classList.add('printing');
+    const t=document.title;document.title='Piano Levels – '+(CUR&&typeof view!=='undefined'&&view!=='home'&&view!=='mini'?CUR.title:($('#ttl').textContent||''))+(vName?' – '+vName:'');
+    const done=()=>{document.body.classList.remove('printing');$('#printArea')?.remove();document.title=t};
+    window.addEventListener('afterprint',done,{once:true});
+    if(pdf)toast('Im nächsten Fenster «Als PDF sichern» bzw. «Als PDF speichern» wählen.');
+    setTimeout(()=>{try{window.print()}catch(e){done()}},pdf?900:150)};
+  dlg.onclick=e=>{const v=e.target.dataset&&e.target.dataset.v;
+    if(v){const nm={'1':'Stimme 1','2':'Stimme 2','3':'Stimme 3',a:'Alle Stimmen',m:'Melodie'};vName=nm[v];
+      items.forEach((it,k)=>{boxes[k].checked=it.v===v});dlg.querySelectorAll('.pvoice [data-v]').forEach(b=>b.style.outline=b.dataset.v===v?'3px solid var(--ind)':'');draw();return}
+    const a=e.target.dataset&&e.target.dataset.a;if(!a)return;
     if(a==='x'){dlg.remove()}
-    else if(a==='all'||a==='none'){boxes.forEach(b=>b.checked=a==='all');draw()}
-    else if(a==='go'){const ch=sel();if(!ch.length){toast('Bitte etwas auswählen.');return}
-      $('#printArea')?.remove();const pa=document.createElement('div');pa.id='printArea';
-      ch.forEach(it=>{const c=it.el.cloneNode(true);pa.append(c)});document.body.append(pa);document.body.classList.add('printing');
-      const t=document.title;document.title='Piano Levels – '+($('#ttl').textContent||'');
-      const done=()=>{document.body.classList.remove('printing');$('#printArea')?.remove();document.title=t};
-      window.addEventListener('afterprint',done,{once:true});
-      setTimeout(()=>{try{window.print()}catch(e){done()}},150)}};
+    else if(a==='all'||a==='none'){boxes.forEach(b=>b.checked=a==='all');vName='';draw()}
+    else if(a==='go'||a==='pdf')doPrint(a==='pdf')};
 }catch(e){}}
 $('#prB').onclick=openPrintDialog;
 
