@@ -119,7 +119,7 @@ details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:cen
  #printArea{display:block!important}
  #prDlg{display:none!important}
  body{background:#fff!important;color:#000}
- header.top,#toast,.toast,button,input,select,textarea,.hide-b,.seg,.dots,.mc,.pad,.noprint,#demoB,#fbB,#cfgb,#miniB,#prB,.row,.kb,.keys{display:none!important}
+ header.top,#toast,.toast,button,input,select,textarea,.hide-b,.seg,.dots,.mc,.pad,.noprint,#fbB,#volB,#cfgb,#miniB,#prB,.row,.kb,.keys{display:none!important}
  .card,.lesson{box-shadow:none!important;border:1px solid #bbb!important;background:#fff!important;break-inside:avoid;page-break-inside:avoid}
  .lesson .lb{display:block!important}
  .lesson .lh>div:last-child{display:none!important}
@@ -132,7 +132,7 @@ details.fold>summary{cursor:pointer;list-style:none;display:flex;align-items:cen
 </style>
 </head>
 <body>
-<header class="top"><button id="back" style="display:none">‹ Übersicht</button><img src="icon.svg" alt="" width="34" height="34" id="logo" style="border-radius:9px"><h1 id="ttl">Piano Levels</h1><button id="prB" aria-label="Drucken" title="Diese Seite drucken (Noten und Rhythmen zum analogen Üben)" style="display:none">🖨 Drucken</button><button id="miniB" aria-label="Mini-Piano">🎹 Mini-Piano</button><button id="demoB" aria-label="Demo-Modus">Demo</button><button id="fbB" aria-label="Feedback" title="Feedback: Fehler melden, Wünsche äussern" onclick="openAppFeedback()">💬</button><button id="cfgb" aria-label="Einstellungen">⚙︎</button></header>
+<header class="top"><button id="back" style="display:none">‹ Übersicht</button><img src="icon.svg" alt="" width="34" height="34" id="logo" style="border-radius:9px"><h1 id="ttl">Piano Levels</h1><button id="prB" aria-label="Drucken" title="Diese Seite drucken (Noten und Rhythmen zum analogen Üben)" style="display:none">🖨 Drucken</button><button id="miniB" aria-label="Mini-Piano">🎹 Mini-Piano</button><button id="fbB" aria-label="Feedback" title="Feedback: Fehler melden, Wünsche äussern" onclick="openAppFeedback()">💬</button><button id="volB" aria-label="Lautstärke" title="Lautstärke: Metronom und Stimmen einzeln einstellen">🔊</button><button id="cfgb" aria-label="Einstellungen">⚙︎</button></header>
 <main id="main"></main>
 
 <script>
@@ -145,11 +145,10 @@ const CONFIG={
   pass:70,                                     // Bestehensgrenze in % bei Tipp-Aufgaben
   approval:'teacher'                           // 'teacher' = Freigabewort der Lehrperson, 'self' = Schüler schalten selbst frei
 };
-const DEMO=/[?&]demo\b/.test(location.search);   // Demo-Version: Aufruf mit ?demo
 const KEY='pianoLevels_v1';
 
 /* ================= Zustand ================= */
-let S={done:{},best:{},chk:{},teacher:false,latency:0,demo:false,apr:''};
+let S={done:{},best:{},chk:{},teacher:false,latency:0,apr:'',vol:{m:1,c:1,t:1,v:[1,1,1,1]}};
 try{Object.assign(S,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const $=(s,r=document)=>r.querySelector(s);
@@ -375,20 +374,25 @@ function keyboard(interactive,lo=60,hi=76){
 
 /* ================= Audio-Engine ================= */
 const Eng={ctx:null,run:null,
-  ensure(){if(!this.ctx){const A=window.AudioContext||window.webkitAudioContext;this.ctx=new A()}if(this.ctx.state!=='running')this.ctx.resume();return this.ctx},
-  click(t,acc){const c=this.ctx,o=c.createOscillator(),g=c.createGain();o.type='square';o.frequency.value=acc?1700:1100;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(acc?.2:.13,t+.002);g.gain.exponentialRampToValueAtTime(.0001,t+.05);o.connect(g).connect(c.destination);o.start(t);o.stop(t+.07)},
-  tone(t,m,dur,vol){const c=this.ctx,f=440*Math.pow(2,(m-69)/12),o1=c.createOscillator(),o2=c.createOscillator(),g=c.createGain(),g2=c.createGain();
+  ensure(){if(!this.ctx){const A=window.AudioContext||window.webkitAudioContext;this.ctx=new A();this.mkBus()}if(this.ctx.state!=='running')this.ctx.resume();return this.ctx},
+  mkBus(){const c=this.ctx,mk=()=>c.createGain();
+    this.lim=c.createDynamicsCompressor();this.lim.threshold.value=-8;this.lim.knee.value=6;this.lim.ratio.value=14;this.lim.attack.value=.003;this.lim.release.value=.15;
+    this.mg=mk();this.mg.connect(this.lim);this.lim.connect(c.destination);
+    this.cg=mk();this.cg.connect(this.mg);this.tg=mk();this.tg.connect(this.mg);this.vg=[0,1,2,3].map(()=>{const g=mk();g.connect(this.mg);return g});this.applyVol()},
+  applyVol(){if(!this.mg)return;const V=S.vol||{m:1,c:1,t:1,v:[1,1,1,1]};this.mg.gain.value=V.m;this.cg.gain.value=V.c;this.tg.gain.value=V.t;this.vg.forEach((g,i)=>g.gain.value=(V.v||[])[i]??1)},
+  click(t,acc){const c=this.ctx,o=c.createOscillator(),g=c.createGain();o.type='square';o.frequency.value=acc?1700:1100;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(acc?.7:.5,t+.002);g.gain.exponentialRampToValueAtTime(.0001,t+.05);o.connect(g).connect(this.cg);o.start(t);o.stop(t+.07)},
+  tone(t,m,dur,vol,voice){const c=this.ctx,f=440*Math.pow(2,(m-69)/12),o1=c.createOscillator(),o2=c.createOscillator(),g=c.createGain(),g2=c.createGain();
     o1.type='triangle';o1.frequency.value=f;o2.type='sine';o2.frequency.value=f*2;g2.gain.value=.35;
     const d=Math.min(Math.max(dur,.3),1.8);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.3*(vol||.7),t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+d);
-    o1.connect(g);o2.connect(g2).connect(g);g.connect(c.destination);o1.start(t);o2.start(t);o1.stop(t+d+.05);o2.stop(t+d+.05)},
+    o1.connect(g);o2.connect(g2).connect(g);g.connect(voice!=null&&this.vg[voice]?this.vg[voice]:this.mg);o1.start(t);o2.start(t);o1.stop(t+d+.05);o2.stop(t+d+.05)},
   tap(t){const c=this.ctx;if(!this.nb){const n=Math.floor(c.sampleRate*.09),b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,3);this.nb=b}
-    const sr=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();sr.buffer=this.nb;f.type='bandpass';f.frequency.value=1500;f.Q.value=.9;g.gain.value=1.4;sr.connect(f).connect(g).connect(c.destination);sr.start(t)},
+    const sr=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();sr.buffer=this.nb;f.type='bandpass';f.frequency.value=1500;f.Q.value=.9;g.gain.value=2.2;sr.connect(f).connect(g).connect(this.tg);sr.start(t)},
   /* cfg: bpm, seq[], events(v,id), audible[], click, countIn, tapVoice, onFrame, onEnd */
   play(cfg){const c=this.ensure();this.stop();
     const BPB=cfg.bpb||4,spb=60/cfg.bpm,st=c.currentTime+.25,cb=cfg.countIn===false?0:BPB,t0=st+cb*spb,total=cfg.seq.length*BPB,ev=[],exp=[];
     const cst=cfg.cstep||1;for(let k=0;k<cb/cst;k++){const t=st+k*cst*spb;ev.push({t,f:()=>this.click(t,k===0)})}
     if(cfg.click)for(let k=0;k<total/cst;k++){const t=t0+k*cst*spb;ev.push({t,f:()=>this.click(t,(k*cst)%BPB===0)})}
-    cfg.seq.forEach((id,s)=>{(cfg.audible||[]).forEach((a,v)=>{if(!a)return;cfg.events(v,id).forEach(e=>{if(e.p==null||e.cont)return;const t=t0+(s*BPB+e.b)*spb;ev.push({t,f:()=>this.tone(t,e.p,(e.td||e.d)*spb,.8)})})});
+    cfg.seq.forEach((id,s)=>{(cfg.audible||[]).forEach((a,v)=>{if(!a)return;cfg.events(v,id).forEach(e=>{if(e.p==null||e.cont)return;const t=t0+(s*BPB+e.b)*spb;ev.push({t,f:()=>this.tone(t,e.p,(e.td||e.d)*spb,.8,v)})})});
       if(cfg.tapVoice!=null)cfg.events(cfg.tapVoice,id).forEach(e=>{if(e.p!=null&&!e.cont)exp.push({t:t0+(s*BPB+e.b)*spb,id,b:e.b,s})})});
     ev.sort((a,b)=>a.t-b.t);
     const run={cfg,st,t0,spb,total,ev,ptr:0,taps:[],exp,done:false};this.run=run;
@@ -775,7 +779,6 @@ const samePcs=(p,r,t)=>{const s=[...new Set(p.map(x=>x%12))].sort((a,b)=>a-b),w=
 const tonesTxt=n=>n.map(nameOf).join(' – ');
 const rnd=a=>a[Math.floor(Math.random()*a.length)];
 const AKCOL=['#4F46E5','#059669','#d97706','#db2777'];
-const akOpen=()=>isDemo()||S.teacher;
 const akPass=id=>(S.best[id]||0)>=CONFIG.pass;
 
 /* Übungs-Karte: Akkord wird genannt, auf dem digitalen Piano drücken, App sagt richtig/falsch */
@@ -1157,9 +1160,9 @@ function level1(box){
 const navHtml=n=>`<button class="btn sec" data-a="prev">‹ Zurück</button><button class="btn sec" data-a="next">${n>=NL(CUR)?'Zur Liederauswahl ›':'Weiter ›'}</button>`;
 function navClick(a,n){if(a==='prev')go(n>1?n-1:'song');else if(a==='next'){if(n>=NL(CUR))go('song');else if(unlocked(n+1))go(n+1);else toast('Schliesse zuerst Level '+n+' ab.')}}
 function approval(n,box,text){
-  const self=isDemo()||(S.apr||CONFIG.approval)==='self';
+  const self=(S.apr||CONFIG.approval)==='self';
   const c=html(self
-   ?`<div class="card hide-b"><h3>Abschluss</h3><p class="small muted">${isDemo()?'Demo-Version: Alle Level sind offen, ein Freigabewort ist nicht nötig.':'Wenn du es kannst, schliesse das Level selbst ab.'}</p><div class="row"><button class="btn ok" data-a="self">Level ${n} abschliessen</button>${navHtml(n)}</div></div>`
+   ?`<div class="card hide-b"><h3>Abschluss</h3><p class="small muted">Wenn du es kannst, schliesse das Level selbst ab.</p><div class="row"><button class="btn ok" data-a="self">Level ${n} abschliessen</button>${navHtml(n)}</div></div>`
    :`<div class="card hide-b"><h3>Abschluss</h3><p class="small muted">${text}</p><div class="row"><input type="text" placeholder="Freigabewort" autocapitalize="off" autocomplete="off" style="width:200px"><button class="btn ok" data-a="ok">Freigabe prüfen</button></div><div class="row" style="margin-top:10px">${navHtml(n)}</div></div>`);
   if(isDone(n))c.querySelector('p').textContent='Dieses Level ist abgeschlossen. ✓';
   c.onclick=e=>{const a=e.target.dataset.a;if(a==='prev'||a==='next'){navClick(a,n);return}if(a==='self'){finishLevel(n);return}if(a!=='ok')return;const v=$('input',c).value.trim().toLowerCase();
@@ -1287,8 +1290,7 @@ const LEVELS=[
  {n:4,t:'Zusammen',ic:'🎶',sub:()=>'Alle Stimmen = Akkorde – dann singen wir',f:level4},
  {n:5,t:'Melodie',ic:'🎤',sub:()=>'Die Melodie zur Begleitung spielen',f:level5}
 ];
-const isDemo=()=>DEMO||S.demo;
-const unlocked=n=>n===1||isDemo()||S.teacher||isDone(n-1);
+const unlocked=n=>true;   // alle Level sind offen
 const NL=s=>s&&s.mel?5:4;
 const NLV=4;
 const progress=s=>Array.from({length:NL(s)},(_,i)=>i+1).filter(n=>S.done[s.id+'_'+n]).length;
@@ -1296,11 +1298,9 @@ function finishLevel(n,auto){S.done[doneK(n)]=true;save();toast('Level '+n+' ges
 function go(v,sid){Eng.stop();document.body.classList.remove('beamer');$('#bx')?.remove();if(sid)CUR=SONGS.find(s=>s.id===sid);view=v;render();if(window._navPush)window._navPush();window.scrollTo(0,0)}
 function render(){
   FLAT=false;
-  $('#demoB').classList.toggle('on',isDemo());$('#demoB').textContent=isDemo()?'Demo an':'Demo';
   const m=$('#main');m.innerHTML='';const bk=$('#back');bk.style.display=view==='home'?'none':'';$('#prB').style.display=view==='home'?'none':'';
   bk.textContent=typeof view==='number'?'‹ '+CUR.title:'‹ Übersicht';
   if(view==='home'){$('#ttl').textContent='Piano Levels';
-    if(isDemo())m.append(html('<div class="card" style="background:#fef3c7;border-color:#fde68a"><b>Demo-Version:</b> Alle Level sind offen und ein Freigabewort ist nicht nötig.</div>'));
     m.append(html(`<div class="card"><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Übe zuerst Puls und Rhythmus. Wähle dann ein Lied: Jedes Lied führt über seine Rhythmus-Bausteine bis zur gemeinsamen Akkordbegleitung.</p></div>`));
     m.append(html('<details class="card fold"><summary><h3>So funktioniert Piano Levels</h3></summary><p class="small" style="margin:0 0 .4rem">Du lernst Schritt für Schritt, ein Lied der Klasse zu spielen. Jedes Lied hat vier Level, die aufeinander aufbauen (bei Liedern mit Melodie kommt ein fünftes dazu):</p><ol class="small" style="margin:0 0 .5rem;padding-left:1.2rem"><li><b>Bausteine &amp; Rhythmus:</b> Du übst den Rhythmus des Lieds mit der <b>Rhythmussprache</b> (zum Beispiel «Schritt», «sta-ah», «Laufe») und tippst ihn im Takt mit. Das Level schliesst die App selbst ab.</li><li><b>Ein Ton:</b> Du spielst den Rhythmus auf einem einzigen Ton auf dem Piano.</li><li><b>Akkordtöne:</b> Die Klasse spielt in drei Gruppen den gleichen Rhythmus, jede Gruppe auf ihren eigenen Tönen.</li><li><b>Zusammen:</b> Alle Stimmen zusammen ergeben die Akkorde. Danach wird dazu gesungen.</li><li><b>Melodie</b> (nur bei Liedern mit Melodie): Du spielst die gesungene Melodie, die Begleitung läuft dazu.</li></ol><p class="small" style="margin:0 0 .4rem">Ab Level 2 bestätigt deine Lehrperson, dass du bereit bist, mit einem <b>Freigabewort</b>. Dann ist das nächste Level offen. Das Tempo startet beim Originaltempo des Lieds, du kannst es langsamer stellen. Die Metronom-Klicks helfen dir, den Puls zu halten. Alles wird auf deinem Gerät gespeichert. Die App lässt sich installieren und funktioniert auch ohne Internet.</p></details>'));
     m.append(html('<details class="card fold"><summary><h3>Was brauchst du?</h3></summary><p class="small" style="margin:0 0 .4rem">Die App zeigt Noten, Tasten und Rhythmen. Gespielt wird auf einem dieser Instrumente:</p><ul class="small" style="margin:0;padding-left:1.2rem"><li><b>Mini-Piano</b> (zum Beispiel Casio SA-46): Spiele die Töne auf dem Instrument und schau dazu in die App.</li><li><b>Richtiges Klavier oder Keyboard:</b> Funktioniert genauso, die Töne sind dieselben.</li><li><b>Nur Tablet oder Handy:</b> Tippe die Tasten der Klaviatur direkt in der App. Ein Instrument ist dann nicht nötig.</li></ul></details>'));
@@ -1378,21 +1378,28 @@ function openPrintDialog(){try{
 }catch(e){}}
 $('#prB').onclick=openPrintDialog;
 
-$('#demoB').onclick=()=>{if(DEMO){toast('Demo läuft über die Adresse (?demo).');return}S.demo=!S.demo;save();toast(S.demo?'Demo: alle Level sind offen.':'Demo aus: Level sind wieder gesperrt.');go('home')};
 /* Einstellungen */
+$('#volB').onclick=()=>{
+  const V=S.vol=S.vol||{m:1,c:1,t:1,v:[1,1,1,1]};if(!V.v)V.v=[1,1,1,1];
+  const rows=[['m','Gesamt'],['c','Metronom-Klick'],['t','Tipp-Ton (Klopfen)'],['v0','Stimme 1 (z. B. Melodie / rechte Hand)'],['v1','Stimme 2 (z. B. linke Hand / Begleitung)'],['v2','Stimme 3'],['v3','Stimme 4']];
+  const get=k=>k[0]==='v'?V.v[+k[1]]:V[k];
+  const ov=html(`<div class="ov"><div class="box"><h3>🔊 Lautstärke</h3><p class="small muted">Wirkt sofort, auch während ein Lied läuft. 100 % ist Standard, bis 200 % lauter.</p>${rows.map(r=>`<div style="margin:10px 0"><div class="small">${r[1]}: <b data-v="${r[0]}">${Math.round(get(r[0])*100)} %</b></div><input type="range" min="0" max="200" step="5" value="${Math.round(get(r[0])*100)}" data-k="${r[0]}" style="width:100%"></div>`).join('')}<div class="row"><button class="btn sec" data-a="t">Test-Klick</button><button class="btn sec" data-a="r">Zurücksetzen</button><button class="btn" data-a="x">Fertig</button></div></div></div>`);
+  ov.oninput=e=>{const k=e.target.dataset.k;if(!k)return;const v=e.target.value/100;if(k[0]==='v')V.v[+k[1]]=v;else V[k]=v;ov.querySelector(`[data-v="${k}"]`).textContent=e.target.value+' %';Eng.applyVol();save()};
+  ov.onclick=e=>{const a=e.target.dataset.a;if(a==='x'||e.target===ov)ov.remove();if(a==='t'){Eng.ensure();const t=Eng.ctx.currentTime+.05;Eng.click(t,true);Eng.click(t+.5,false);Eng.tone(t+1,67,.6,.8,0)}
+    if(a==='r'){S.vol={m:1,c:1,t:1,v:[1,1,1,1]};save();Eng.applyVol();ov.remove();$('#volB').onclick()}};
+  document.body.append(ov)};
 $('#cfgb').onclick=()=>{
   const ov=html(`<div class="ov"><div class="box"><h3>Einstellungen</h3>
    <p class="small muted">Timing-Korrektur für die Tipp-Aufgaben: Wenn du dich immer zu früh oder zu spät bewertet fühlst (z. B. wegen Bluetooth-Kopfhörern).</p>
    <div class="row"><input type="range" min="-150" max="250" step="5" value="${S.latency}"><b class="lv2">${S.latency} ms</b></div>
-   <p class="small muted" style="margin-top:14px">Zum Testen:</p><div class="row"><span class="pill ${S.demo?'on':''}" data-a="demo">Demo-Modus (alle Level offen)</span><span class="pill ${(S.apr||CONFIG.approval)==='teacher'?'on':''}" data-a="apr">Freigabe durch Lehrperson</span></div>
+   <p class="small muted" style="margin-top:14px">Zum Testen:</p><div class="row"><span class="pill ${(S.apr||CONFIG.approval)==='teacher'?'on':''}" data-a="apr">Freigabe durch Lehrperson</span></div>
    <p class="small muted" style="margin-top:14px">Lehrercode (alle Levels öffnen):</p><div class="row"><input type="text" id="tc" autocapitalize="off" placeholder="Code"><button class="btn sec" data-a="t">OK</button></div>
    <div class="row" style="margin-top:16px;justify-content:space-between"><button class="btn bad" data-a="rs">Fortschritt löschen</button><button class="btn" data-a="x">Schliessen</button></div></div></div>`);
   const rg=$('input[type=range]',ov);rg.oninput=()=>{S.latency=+rg.value;$('.lv2',ov).textContent=S.latency+' ms';save()};
   ov.onclick=e=>{const a=e.target.dataset.a;if(e.target===ov||a==='x'){ov.remove();render()}
-    if(a==='demo'){S.demo=!S.demo;save();e.target.classList.toggle('on',S.demo)}
     if(a==='apr'){S.apr=(S.apr||CONFIG.approval)==='teacher'?'self':'teacher';save();e.target.classList.toggle('on',S.apr==='teacher')}
     if(a==='t'){if($('#tc',ov).value.trim().toLowerCase()===CONFIG.teacher){S.teacher=true;save();toast('Lehrermodus: alle Levels offen.')}else toast('Code falsch.')}
-    if(a==='rs'){if(!e.target.dataset.sure){e.target.dataset.sure=1;e.target.textContent='Sicher? Nochmals tippen'}else{S={done:{},best:{},chk:{},teacher:false,latency:0,demo:S.demo,apr:S.apr};save();ov.remove();go('home')}}};
+    if(a==='rs'){if(!e.target.dataset.sure){e.target.dataset.sure=1;e.target.textContent='Sicher? Nochmals tippen'}else{S={done:{},best:{},chk:{},teacher:false,latency:0,apr:S.apr,vol:S.vol};save();ov.remove();go('home')}}};
   document.body.append(ov)};
 render();
 </script>
