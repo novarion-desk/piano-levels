@@ -260,7 +260,7 @@ function trinBar(){
 /* ================= Notenbild (SVG) ================= */
 function renderScore(o){
   FLAT=!!o.flat;
-  const BPB=o.bpb||4,TSA=(o.ts||(BPB+'/4')).split('/'),TSN=TSA[0],TSD=TSA[1],PER=o.per||4,W=1000,L=o.flat?104:84,RM=8,bw=(W-L-RM)/PER,pad=18,vh=104,top=46,nV=o.voices.length;
+  const BO=o.bass?12:0,carry={};const BPB=o.bpb||4,TSA=(o.ts||(BPB+'/4')).split('/'),TSN=TSA[0],TSD=TSA[1],PER=o.per||4,W=1000,L=o.flat?104:84,RM=8,bw=(W-L-RM)/PER,pad=18,vh=104,top=46,nV=o.voices.length;
   const root=html('<div class="score"></div>');
   const loc={},svgs=[];
   const X=(bx,b)=>bx+pad+(b/BPB)*bw;   // gleichmässig: Taktende = nächster Taktanfang
@@ -270,7 +270,7 @@ function renderScore(o){
     for(let v=0;v<nV;v++){
       const y0=top+v*vh;
       for(let i=0;i<5;i++)s+=`<line x1="${L-6}" x2="${L+ids.length*bw}" y1="${y0+i*8}" y2="${y0+i*8}" stroke="#333"/>`;
-      s+=`<text x="8" y="${y0+27}" font-size="54" class="mus">\u{1D11E}</text>`;
+      s+=o.bass?`<text x="8" y="${y0+23}" font-size="46" class="mus">\u{1D122}</text>`:`<text x="8" y="${y0+27}" font-size="54" class="mus">\u{1D11E}</text>`;
       if(o.flat)s+=`<text x="60" y="${y0+23}" font-size="34" class="mus">♭</text>`;
       s+=`<text x="${o.flat?86:62}" y="${y0+16}" class="ts">${TSN}</text><text x="${o.flat?86:62}" y="${y0+32}" class="ts">${TSD}</text>`;
       if(o.voiceLabel||nV>1)s+=`<text x="4" y="${y0-21}" font-size="13" font-weight="700" fill="${o.voices[v].color}">${o.voices[v].label}</text>`;
@@ -288,7 +288,7 @@ function renderScore(o){
         if(bar.rs)s+=`<line x1="${bx+1}" x2="${bx+1}" y1="${y0}" y2="${yb}" stroke="#333" stroke-width="4"/><line x1="${bx+7}" x2="${bx+7}" y1="${y0}" y2="${yb}" stroke="#333"/><circle cx="${bx+14}" cy="${y0+12}" r="2.5"/><circle cx="${bx+14}" cy="${y0+20}" r="2.5"/>`;
         /* Töne */
         const evs=(o.events?o.events(id,v):bar.v[v]);
-        const yOf=st=>yb-st*4;const seen={};let grp=[],tiePend=null;
+        const yOf=st=>yb-st*4;const seen={};let grp=[],tiePend=(carry[v]&&carry[v].si===si)?carry[v]:null;carry[v]=null;
         const head=(x,st,d,c)=>{const y=yOf(st);let t='';
           for(let k=-2;k>=st;k-=2)t+=`<line x1="${x-10}" x2="${x+10}" y1="${yOf(k)}" y2="${yOf(k)}" stroke="#333"/>`;
           for(let k=10;k<=st;k+=2)t+=`<line x1="${x-10}" x2="${x+10}" y1="${yOf(k)}" y2="${yOf(k)}" stroke="#333"/>`;
@@ -315,12 +315,12 @@ function renderScore(o){
             else if(e.d===2)s+=`<rect x="${x-8}" y="${y0+11}" width="16" height="5" fill="#222"/>`;
             else s+=`<rect x="${x-8}" y="${y0+8}" width="16" height="5" fill="#222"/>`;
             return}
-          const st=stepOf(e.p),y=yOf(st);
+          const st=stepOf(e.p)+BO,y=yOf(st);
           if(e.d>.75)flush();
           s+=head(x,st,e.d,col);
           if((e.d%1===.5&&e.d>=1)||e.d===3||e.d===.75)s+=`<circle cx="${x+12}" cy="${y-(st%2===0?4:0)}" r="2.3" fill="${col}"/>`;
           if(e.cont&&tiePend){const up=tiePend.st<4,y1=yOf(tiePend.st)+(up?7:-7);s+=`<path d="M${tiePend.x+7} ${y1} Q${(tiePend.x+x)/2} ${y1+(up?11:-11)} ${x-7} ${y1}" fill="none" stroke="${col}" stroke-width="2"/>`;tiePend=null}
-          if(e.tie)tiePend={x,st};
+          if(e.tie)tiePend={x,st,si};
           if(isSharp(e.p)&&!(FLAT&&e.p%12===10)&&!seen[st]){seen[st]=1;s+=`<text x="${x-19}" y="${y+7}" font-size="22" class="mus" fill="${col}">♯</text>`}
           if(e.d<=.75){const kf=q=>q.tag==='N'||q.tag==='n'?Math.floor((q.b+1e-6)/1.5):(q.d===.25||q.d===.75||q.tag==='R'||Math.abs(q.d-1/3)<1e-6)?Math.floor(q.b+1e-6):Math.floor(q.b/2),
               cl=q=>q.d===.25||q.d===.75?'m':Math.abs(q.d-1/3)<1e-6?'t':(q.tag==='N'||q.tag==='n')?'n':'e';
@@ -331,6 +331,7 @@ function renderScore(o){
           if(!e.cont)s+=`<text class="nm" x="${x}" y="${y0+60}">${nameOf(e.p)}</text>`;
         });
         flush();
+        if(tiePend)carry[v]=tiePend;
         if(o.words)wordsOf(evs).forEach(w=>{s+=`<text class="wd${w.n?' num':''}${w.s?' sm':''}" data-bar="${id}" data-b0="${w.b}" data-b1="${w.e}" x="${X(bx,w.b)-6}" y="${y0+82}">${w.t}</text>`});
         /* Akkorde, Volta */
         if(v===0){
@@ -860,8 +861,8 @@ function baukasten(withInv){
 let AKT='ein',AKS=null;
 function akkordProjekt(m){
   const redraw=()=>{m.innerHTML='';akkordProjekt(m)};
-  m.append(html(`<div class="card"><h2>🎸 Akkordprojekt</h2><p class="muted" style="margin:0">Du lernst, wie Akkorde gebaut sind, spielst sie in Grundstellung und in Umkehrungen und begleitest dann Lieder. Reihenfolge: ① Dreiklänge ② Umkehrungen ③ Lieder.</p></div>`));
-  const tabs=html(`<div class="row hide-b" style="margin:4px 0 10px"><div class="seg">${[['ein','① Dreiklänge'],['inv','② Umkehrungen'],['lieder','③ Lieder']].map(x=>`<button data-t="${x[0]}" class="${AKT===x[0]?'on':''}">${x[1]}</button>`).join('')}</div></div>`);
+  m.append(html(`<div class="card"><h2>🎸 Akkordprojekt</h2><p class="muted" style="margin:0">Du lernst, wie Akkorde gebaut sind, spielst sie in Grundstellung und in Umkehrungen und begleitest dann Lieder. Reihenfolge: 🎹 Dreiklänge, 🔄 Umkehrungen, 🎵 Lieder.</p></div>`));
+  const tabs=html(`<div class="row hide-b" style="margin:4px 0 10px"><div class="seg">${[['ein','🎹 Dreiklänge'],['inv','🔄 Umkehrungen'],['lieder','🎵 Lieder']].map(x=>`<button data-t="${x[0]}" class="${AKT===x[0]?'on':''}">${x[1]}</button>`).join('')}</div></div>`);
   tabs.onclick=e=>{const b=e.target.closest('button');if(b){AKT=b.dataset.t;AKS=null;Eng.stop();redraw();window.scrollTo(0,0)}};
   m.append(tabs);
   if(AKT==='ein')akEin(m,redraw);else if(AKT==='inv')akInv(m,redraw);else akLieder(m,redraw)}
@@ -881,7 +882,7 @@ function akEin(m,redraw){
   m.append(chordQuiz({id:'ak_q2',title:'Übung 2: alle vier Arten',desc:'Dur, Moll, vermindert, übermässig mit beliebigen Grundtönen (auch schwarze Tasten).',gen:genGrund([0,1,2,3,4,5,6,7,8,9,10,11],['dur','moll','dim','aug']),onDone:redraw}));
   m.append(chordQuiz({id:'ak_q3',title:'Übung 3: Septakkorde',desc:'Dur-Akkord plus kleine Septime: 4 Töne.',gen:gen7,onDone:redraw}));
   const ok=['ak_q1','ak_q2','ak_q3'].every(akPass);
-  m.append(html(`<div class="card" style="${ok?'':'opacity:.8'}"><b>${ok?'✓ Alle Übungen geschafft.':'Ziel: alle drei Übungen mit mindestens '+CONFIG.pass+' %.'}</b> ${ok?'Weiter mit ② Umkehrungen.':''}</div>`));
+  m.append(html(`<div class="card" style="${ok?'':'opacity:.8'}"><b>${ok?'✓ Alle Übungen geschafft.':'Ziel: alle drei Übungen mit mindestens '+CONFIG.pass+' %.'}</b> ${ok?'Weiter mit 🔄 Umkehrungen.':''}</div>`));
 }
 
 function akInv(m,redraw){
@@ -894,7 +895,7 @@ function akInv(m,redraw){
   m.append(chordQuiz({id:'ak_q4',title:'Übung 4: Umkehrungen',desc:'Grundstellung, 1. oder 2. Umkehrung: Auf den untersten Ton kommt es an.',gen:genInv,onDone:redraw}));
   m.append(chordQuiz({id:'ak_q5',title:'Übung 5: Akkordwechsel – nahe beieinander',desc:'Zwei Akkorde nacheinander. Beim zweiten gilt: möglichst wenig bewegen.',gen:genWechsel,n:6,onDone:redraw}));
   const ok=['ak_q4','ak_q5'].every(akPass);
-  m.append(html(`<div class="card"><b>${ok?'✓ Geschafft. Weiter mit ③ Lieder.':'Ziel: beide Übungen mit mindestens '+CONFIG.pass+' %.'}</b></div>`));
+  m.append(html(`<div class="card"><b>${ok?'✓ Geschafft. Weiter mit 🎵 Lieder.':'Ziel: beide Übungen mit mindestens '+CONFIG.pass+' %.'}</b></div>`));
 }
 
 /* ----- Lieder ----- */
@@ -939,7 +940,7 @@ const invOf=ch=>{const iv=CTYPE[ch.t].iv,k=iv.findIndex(i=>(ch.r+i)%12===ch.n[0]
 
 function akLieder(m,redraw){
   if(AKS){akSong(m,AKSONGS.find(s=>s.id===AKS),()=>{AKS=null;redraw()});return}
-  m.append(html(`<div class="card"><p class="muted" style="margin:0">Die Lieder sind nach Schwierigkeit sortiert. Du siehst, wie die Akkorde gehen, kannst sie dir vorspielen lassen und mit Metronom mitspielen. Du spielst die Akkorde nahe beieinander (Umkehrungen). Tipp: Übe zuerst ① Dreiklänge und ② Umkehrungen.</p></div>`));
+  m.append(html(`<div class="card"><p class="muted" style="margin:0">Die Lieder sind nach Schwierigkeit sortiert. Du siehst, wie die Akkorde gehen, kannst sie dir vorspielen lassen und mit Metronom mitspielen. Du spielst die Akkorde nahe beieinander (Umkehrungen). Tipp: Übe zuerst 🎹 Dreiklänge und 🔄 Umkehrungen.</p></div>`));
   [1,2,3].forEach(l=>{const L=AKSONGS.filter(s=>s.lvl===l);if(!L.length)return;
     m.append(html(`<h3 style="margin:16px 4px 6px">${AKL[l][0].toUpperCase()+AKL[l].slice(1)}</h3>`));
     L.forEach(sg=>{const bars=akBars(sg),names=[...new Set(bars.flatMap(b=>b.segs.map(x=>x.ch.c)))];
@@ -954,16 +955,16 @@ function akSong(m,sg,back){
   m.append(html(`<div class="card"><h2>${sg.title}</h2><div class="muted">Tonart ${sg.key} · Schwierigkeit: ${AKL[sg.lvl]} · Tempo ${sg.bpm} BPM${sg.id==='jack'?' (Original 173 BPM, halbes Tempo)':''}</div>
     <p style="margin:10px 0 0"><b>Akkordfolge</b> (ein Takt = 4 Schläge, wird wiederholt): ${bars.map(b=>`<span class="pill" style="min-height:30px;padding:2px 10px">${segTxt(b)}</span>`).join(' → ')}</p>
     <p style="margin:8px 0 0"><b>Rhythmus:</b> ${sg.rhythm}</p></div>`));
-  m.append(html('<h3 style="margin:16px 4px 6px">① Die Akkorde</h3>'));
+  m.append(html('<h3 style="margin:16px 4px 6px">🎹 Die Akkorde</h3>'));
   chs.forEach(ch=>{const lh=[];bars.forEach(b=>b.segs.filter(s=>s.ch.c===ch.c).forEach(s=>b.bass.forEach(x=>{if(!x[3]&&x[0]>=s.b-1e-6&&x[0]<s.b+s.d-1e-6&&!lh.includes(x[2]))lh.push(x[2])})));
     const kb=keyboard({},Math.min(...ch.n,...lh)-2,Math.max(...ch.n)+2),mp={};ch.n.forEach(n=>mp[n]=AKCOL[0]);lh.forEach(n=>mp[n]=AKCOL[1]);kb.paint(mp);
     const card=html(`<div class="card"><div class="row sp"><h3 style="margin:0">${ch.c}</h3><span class="tag">${invOf(ch)}</span></div>
       <p class="small" style="margin:6px 0">Rechte Hand (blau): <b>${tonesTxt(ch.n)}</b> · Linke Hand (grün, Bass): <b>${lh.map(n=>CROOT[n%12]).join(', ')}</b>${sg.lh==='opt'?' <span class="muted">(für Fortgeschrittene)</span>':''}</p><div class="kk"></div><div class="row" style="margin-top:8px"><button class="btn sec">▶ hören</button></div></div>`);
     $('.kk',card).append(kb.el);$('button',card).onclick=()=>{Eng.ensure();const t=Eng.ctx.currentTime+.05;ch.n.forEach(n=>Eng.tone(t,n,1.4,.6));lh.slice(0,1).forEach(n=>Eng.tone(t,n,1.4,.7))};
     m.append(card)});
-  m.append(html('<h3 style="margin:16px 4px 6px">② Akkorde üben</h3>'));
+  m.append(html('<h3 style="margin:16px 4px 6px">✅ Akkorde üben</h3>'));
   m.append(chordQuiz({id:'ak_s_'+sg.id,title:'Akkord nennen und drücken',desc:'Du bekommst einen Akkord aus dem Lied genannt und drückst ihn (beliebige Lage).',gen:genSongCh(chs),n:6}));
-  m.append(html('<h3 style="margin:16px 4px 6px">③ Akkordfolge spielen</h3>'));
+  m.append(html('<h3 style="margin:16px 4px 6px">🎶 Akkordfolge spielen</h3>'));
   const lhReq=sg.lh==='req',sw=b=>sg.swing&&Math.abs(b%1-.5)<1e-6?b+1/6:b;
   const chart=html(`<div class="card"><div class="small muted" style="margin-bottom:6px">Tippe auf Start. Nach dem Einzähler läuft die Akkordfolge, bis du auf Stopp tippst. Die Akkorde leuchten auf, die Tasten werden gezeigt. Mit den Schaltern schaltest du eine Hand stumm und spielst sie selbst.</div><div class="row stick"><button class="btn" data-a="go">▶ Start</button></div>
     <div class="ctl"></div><div class="status small" style="margin:6px 0;min-height:20px"></div>
@@ -983,17 +984,26 @@ function akSong(m,sg,back){
   for(let i=0;i<bars.length;i+=4)rsys.push(bars.slice(i,i+4).map((_,k)=>'r'+(i+k)));
   const rsc=renderScore({bars:rb,systems:rsys,flat:false,bpb:4,voices:[{label:'Rhythmus',color:'#4F46E5'}],voiceLabel:true,colorNotes:true,events:(id,v)=>rb[id].v[0],words:false});rsc.el.classList.add('nonames');
   const rcard=html('<div class="card" style="padding:8px"><div class="small muted" style="margin:0 0 4px">Rhythmus der rechten Hand (läuft mit dem Metronom mit)</div></div>');rcard.append(rsc.el);chart.querySelector('.ach').before(rcard);
+  const lb={},lsys=[];
+  bars.forEach((b,i)=>{const evs=[];let t=0;const prev=bars[(i+bars.length-1)%bars.length],pt=prev.bass.find(x=>x[3]),bs=b.bass.slice().sort((x,y)=>x[0]-y[0]);
+    const gap=to=>{let g=to-t;while(g>1e-6){const u=g>=2?2:g>=1?1:g>=.5?.5:g;evs.push({b:t,d:u,p:null});t+=u;g-=u}};
+    if(pt&&bs.length&&bs[0][0]>0){evs.push({b:0,d:bs[0][0],p:pt[2],cont:1});t=bs[0][0]}
+    bs.forEach(([st,d,p,tie])=>{gap(st);const dd=Math.min(d,4-st);evs.push({b:st,d:dd,p,tie:tie?1:0});t=st+dd});gap(4);
+    lb['l'+i]={ch:b.segs.map(x=>[x.b,x.ch.c]),v:[evs]}});
+  for(let i=0;i<bars.length;i+=4)lsys.push(bars.slice(i,i+4).map((_,k)=>'l'+(i+k)));
+  const lsc=renderScore({bars:lb,systems:lsys,flat:false,bpb:4,bass:true,voices:[{label:'Linke Hand',color:'#16a34a'}],voiceLabel:true,colorNotes:true,events:(id,v)=>lb[id].v[0],words:false});lsc.follow=false;
+  const lcard=html(`<div class="card" style="padding:8px"><div class="small muted" style="margin:0 0 4px">Noten der linken Hand (Bassschlüssel, Töne ${[...new Set(bars.flatMap(b=>b.bass.map(x=>nameOf(x[2]))))].join(', ')})</div></div>`);lcard.append(lsc.el);rcard.after(lcard);
   const cells=[...chart.querySelectorAll('.acell')],status=$('.status',chart),go=$('[data-a=go]',chart);let on=false;
   const clear=()=>{cells.forEach(c=>{c.style.borderColor='var(--line)';c.querySelectorAll('.aseg').forEach(s=>s.style.background='#f4f5fb')});kb.paint({})};
   chart.onclick=e=>{const a=e.target.dataset.a;
     if(a==='go'){if(on){Eng.stop();return}Eng.ensure();on=true;go.textContent='■ Stopp';
       Eng.play({bpm:ctl.st.bpm,bpb:4,seq:ids,events:evOf,audible:[ctl.st.rh,ctl.st.lh],click:ctl.st.click,
-        onFrame:f=>{if(f.counting){status.textContent='Einzähler: '+f.countBeat;rsc.count(f.countBeat);rsc.hideCursor();return}
-          rsc.count(null);const bi=f.slot%bars.length,b=bars[bi];rsc.cursor('r'+bi,f.bb);status.textContent='Takt '+(bi+1)+' von '+bars.length+' · Schlag '+(Math.floor(f.bb)+1);
+        onFrame:f=>{if(f.counting){status.textContent='Einzähler: '+f.countBeat;rsc.count(f.countBeat);rsc.hideCursor();lsc.hideCursor();return}
+          rsc.count(null);const bi=f.slot%bars.length,b=bars[bi];rsc.cursor('r'+bi,f.bb);lsc.cursor('l'+bi,f.bb);status.textContent='Takt '+(bi+1)+' von '+bars.length+' · Schlag '+(Math.floor(f.bb)+1);
           cells.forEach((c,i)=>{c.style.borderColor=i===bi?'var(--ind)':'var(--line)';c.querySelectorAll('.aseg').forEach((s,j)=>{const sgm=b.segs[j];s.style.background=(i===bi&&f.bb>=sgm.b&&f.bb<sgm.b+sgm.d)?'#c7d2fe':'#f4f5fb'})});
           if(ctl.st.keys){const mp={},seg=b.segs.filter(s=>s.b<=f.bb+1e-6).pop();seg.ch.n.forEach(n=>mp[n]=AKCOL[0]);
             if(lhReq||ctl.st.lh){const bs=b.bass.filter(x=>x[0]<=f.bb+1e-6).pop();if(bs)mp[bs[2]]=AKCOL[1]}kb.paint(mp)}else kb.paint({})},
-        onEnd:()=>{on=false;go.textContent='▶ Start';status.textContent='';rsc.count(null);rsc.hideCursor();clear()}})}
+        onEnd:()=>{on=false;go.textContent='▶ Start';status.textContent='';rsc.count(null);rsc.hideCursor();lsc.hideCursor();clear()}})}
     if(a==='s0'||a==='s1'){Eng.ensure();Eng.stop();const spb=60/sg.bpm,t0=Eng.ctx.currentTime+.1;
       for(let k=0;k<4;k++){Eng.click(t0+k*spb,k===0);Eng.tone(t0+k*spb,67,.3,.7);Eng.tone(t0+k*spb+spb*(a==='s1'?2/3:.5),67,.2,.6)}}};
   m.append(chart);
