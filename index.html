@@ -874,7 +874,7 @@ function akEin(m,redraw){
    ${['dur','moll','dim','aug'].map(x=>`<tr><td><b>${CTYPE[x].txt}</b></td><td>+${CTYPE[x].steps[0]}</td><td>+${CTYPE[x].steps[1]}</td><td>${ex(0,x)}</td><td>${CTYPE[x].feel}</td></tr>`).join('')}</table>
    <p class="small muted" style="margin:10px 0 0"><b>Dur</b> und <b>Moll</b> brauchst du in fast allen Liedern. <b>Vermindert</b> und <b>übermässig</b> kommen selten vor, du sollst sie aber kennen. Merke: Der Unterschied zwischen Dur und Moll ist nur der 2. Ton (Dur +4, Moll +3).</p></div>`));
   m.append(baukasten(false));
-  m.append(html(`<div class="card"><h3>Septakkord (4 Töne)</h3><p style="margin:0">In einigen Liedern steht eine <b>7</b> (z. B. D7, G7, Ab7). Das ist ein Dur-Dreiklang plus ein 4. Ton: Von der Quinte (3. Ton) zählst du noch <b>+3 Tasten</b> weiter. D7 = ${ex(2,'dom7')} (+4, +3, +3). Er klingt spannungsvoll, als wolle er zum nächsten Akkord weitergehen.</p></div>`));
+  m.append(html(`<div class="card"><h3>Septakkord (4 Töne)</h3><p style="margin:0">In einigen Liedern steht eine <b>7</b> (z. B. E7, G7, Ab7). Das ist ein Dur-Dreiklang plus ein 4. Ton: Von der Quinte (3. Ton) zählst du noch <b>+3 Tasten</b> weiter. D7 = ${ex(2,'dom7')} (+4, +3, +3). Er klingt spannungsvoll, als wolle er zum nächsten Akkord weitergehen.</p></div>`));
   const info=html('<h3 style="margin:18px 4px 6px">Übungen</h3>');m.append(info);
   m.append(html('<p class="small muted" style="margin:0 4px 8px">Du bekommst einen Akkord genannt und drückst die Tasten auf dem Piano (alle Tasten des Akkords, Grundton ganz unten). Die App sagt dir sofort, ob es stimmt.</p>'));
   m.append(chordQuiz({id:'ak_q1',title:'Übung 1: Dur und Moll',desc:'Grundtöne auf weissen Tasten. Grundstellung.',gen:genGrund(WROOT,['dur','moll']),onDone:redraw}));
@@ -907,9 +907,9 @@ const AKSONGS=[
  {id:'shape',title:'Shape of You',lvl:2,key:'H-Moll',bpm:96,lh:'opt',pat:'seg',
   rhythm:'<b>Zwei Akkorde pro Takt</b>: jeder Akkord eine halbe Note («sta-ah»). Die linke Hand (für Fortgeschrittene) spielt den Grundton als halbe Note.',
   bars:[[SG(CHD('Hm',11,'moll',[62,66,71]),47,2),SG(CHD('Em',4,'moll',[64,67,71]),52,2)],[SG(CHD('G',7,'dur',[62,67,71]),43,2),SG(CHD('A',9,'dur',[61,64,69]),45,2)]]},
- {id:'havana',title:'Havana',lvl:3,key:'G-Moll',bpm:105,lh:'opt',pat:'havana',
-  rhythm:'4 Takte, werden wiederholt. <b>Takt 1 und 3 (Gm – Es):</b> die rechte Hand schlägt den Akkord auf Schlag 2 und 4 an (Schlag 1 und 3 sind Pause). <b>Takt 2 (D7):</b> Pause, dann ein Akkord auf Schlag 2, der bis auf «3» gehalten wird (Haltebogen), danach zwei Achtel und eine Viertel. <b>Takt 4 (D7):</b> Pause, Akkord auf Schlag 2, Achtelpause, dann drei Achtel. Die linke Hand (für Fortgeschrittene) spielt Grundtöne: Viertel, Achtelpause, Achtel, dann Viertel und zwei Achtel.',
-  bars:[[SG(CHD('Gm',7,'moll',[62,67,70]),43,2),SG(CHD('Eb',3,'dur',[63,67,70]),51,2)],[SG(CHD('D7',2,'dom7',[62,66,69,72]),50,4)],[SG(CHD('Gm',7,'moll',[62,67,70]),43,2),SG(CHD('Eb',3,'dur',[63,67,70]),51,2)],[SG(CHD('D7',2,'dom7',[62,66,69,72]),50,4)]]},
+ {id:'havana',title:'Havana',lvl:3,key:'A-Moll',bpm:105,lh:'opt',pat:'havana',
+  rhythm:'4 Takte, werden wiederholt (Am – F | E7 | Am – F | E7). <b>Rechte Hand, Takt 1 und 3:</b> Viertelpause, Akkord (Schlag 2), Viertelpause, Akkord (Schlag 4). <b>Takt 2:</b> Pause, Akkord auf Schlag 2 mit <b>Haltebogen</b> zur Achtel auf «3», dann Achtel und Viertel. <b>Takt 4:</b> Pause, Akkord auf Schlag 2, Achtelpause, dann drei Achtel. <b>Linke Hand</b> (für Fortgeschrittene), Takt 1 und 3: Viertel A, Achtelpause, Achtel A, Viertel F, Achtel F, Achtel E (mit Haltebogen in den nächsten Takt). Takt 2 und 4: Achtel E (gebunden), Achtel E, Viertel E, dann halbe Pause.',
+  bars:[[SG(CHD('Am',9,'moll',[57,60,64]),45,2),SG(CHD('F',5,'dur',[57,60,65]),41,2)],[SG(CHD('E7',4,'dom7',[56,59,62,64]),40,4)],[SG(CHD('Am',9,'moll',[57,60,64]),45,2),SG(CHD('F',5,'dur',[57,60,65]),41,2)],[SG(CHD('E7',4,'dom7',[56,59,62,64]),40,4)]]},
  {id:'jack',title:'Hit the Road Jack',lvl:3,key:'C-Moll',bpm:87,lh:'req',swing:1,pat:'jack',
   rhythm:'<b>Swing</b> (Original 173 BPM, zum Üben das halbe Tempo): <b>Linke Hand</b> (Pflicht): halbe Noten, Stufe für Stufe nach unten: C – Bb – Ab – G. <b>Rechte Hand</b>: kommt auf den <b>Offbeat</b> (Schlag 2 und 4). Im 2. Takt: punktierte Viertel mit Haltebogen zur Achtel, dann zwei Achtel. Die rechte Hand spielt 3-Ton-Akkorde ohne Grundton (den spielt die linke Hand).'}
 ];
@@ -925,8 +925,9 @@ function akBars(sg){
     return [b1,b2,b1,b4]}
   if(sg.pat==='havana'){
     return sg.bars.map((b,k)=>{const segs=mkSegs(b),c0=segs[0].ch;let rh,bass;
-      if(k%2===0){rh=[[1,1,segs[0].ch],[3,1,segs[1].ch]];bass=[[0,1,43],[1.5,.5,43],[2,1,51],[3,.5,51]]}
-      else{bass=[[0,.5,50],[.5,.5,50],[1,1,50]];
+      const e=sg.bars[(k+1)%4][0].bass;   // E: letzte Achtel von Takt 1/3 ist an die erste Achtel von Takt 2/4 gebunden
+      if(k%2===0){rh=[[1,1,segs[0].ch],[3,1,segs[1].ch]];bass=[[0,1,segs[0].bass],[1.5,.5,segs[0].bass],[2,1,segs[1].bass],[3,.5,segs[1].bass],[3.5,1,e,1]]}
+      else{bass=[[.5,.5,segs[0].bass],[1,1,segs[0].bass]];
         rh=k===1?[[1,1.5,c0],[2.5,.5,c0],[3,1,c0]]:[[1,1,c0],[2.5,.5,c0],[3,.5,c0],[3.5,.5,c0]]}
       return{segs,rh,bass}})}
   return sg.bars.map(b=>{const segs=mkSegs(b),at=t=>segs.filter(s=>s.b<=t+1e-6).pop().ch;let rh=[];
@@ -954,7 +955,7 @@ function akSong(m,sg,back){
     <p style="margin:10px 0 0"><b>Akkordfolge</b> (ein Takt = 4 Schläge, wird wiederholt): ${bars.map(b=>`<span class="pill" style="min-height:30px;padding:2px 10px">${segTxt(b)}</span>`).join(' → ')}</p>
     <p style="margin:8px 0 0"><b>Rhythmus:</b> ${sg.rhythm}</p></div>`));
   m.append(html('<h3 style="margin:16px 4px 6px">① Die Akkorde</h3>'));
-  chs.forEach(ch=>{const lh=[];bars.forEach(b=>b.segs.filter(s=>s.ch.c===ch.c).forEach(s=>b.bass.forEach(x=>{if(x[0]>=s.b-1e-6&&x[0]<s.b+s.d-1e-6&&!lh.includes(x[2]))lh.push(x[2])})));
+  chs.forEach(ch=>{const lh=[];bars.forEach(b=>b.segs.filter(s=>s.ch.c===ch.c).forEach(s=>b.bass.forEach(x=>{if(!x[3]&&x[0]>=s.b-1e-6&&x[0]<s.b+s.d-1e-6&&!lh.includes(x[2]))lh.push(x[2])})));
     const kb=keyboard({},Math.min(...ch.n,...lh)-2,Math.max(...ch.n)+2),mp={};ch.n.forEach(n=>mp[n]=AKCOL[0]);lh.forEach(n=>mp[n]=AKCOL[1]);kb.paint(mp);
     const card=html(`<div class="card"><div class="row sp"><h3 style="margin:0">${ch.c}</h3><span class="tag">${invOf(ch)}</span></div>
       <p class="small" style="margin:6px 0">Rechte Hand (blau): <b>${tonesTxt(ch.n)}</b> · Linke Hand (grün, Bass): <b>${lh.map(n=>CROOT[n%12]).join(', ')}</b>${sg.lh==='opt'?' <span class="muted">(für Fortgeschrittene)</span>':''}</p><div class="kk"></div><div class="row" style="margin-top:8px"><button class="btn sec">▶ hören</button></div></div>`);
