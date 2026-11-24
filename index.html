@@ -862,6 +862,7 @@ function baukasten(withInv){
 let AKT='ein',AKS=null;
 function akkordProjekt(m){
   const redraw=()=>{m.innerHTML='';akkordProjekt(m)};
+  $('#back').textContent=(AKT==='lieder'&&AKS)?'‹ Alle Lieder':'‹ Übersicht';
   m.append(html(`<div class="card"><h2>🎸 Akkordprojekt</h2><p class="muted" style="margin:0">Du lernst, wie Akkorde gebaut sind, spielst sie in Grundstellung und in Umkehrungen und begleitest dann Lieder. Reihenfolge: 🎹 Dreiklänge, 🔄 Umkehrungen, 🎵 Lieder.</p></div>`));
   const tabs=html(`<div class="row hide-b" style="margin:4px 0 10px"><div class="seg">${[['ein','🎹 Dreiklänge'],['inv','🔄 Umkehrungen'],['lieder','🎵 Lieder']].map(x=>`<button data-t="${x[0]}" class="${AKT===x[0]?'on':''}">${x[1]}</button>`).join('')}</div></div>`);
   tabs.onclick=e=>{const b=e.target.closest('button');if(b){AKT=b.dataset.t;AKS=null;Eng.stop();redraw();window.scrollTo(0,0)}};
@@ -906,14 +907,14 @@ const AKSONGS=[
  {id:'himalaya',title:'Himalaya',lvl:1,key:'G-Dur',bpm:90,lh:'opt',pat:'eighth',
   rhythm:'<b>Achtelnoten</b>: Die rechte Hand spielt den Akkord auf jedem Achtel («Laufe, Laufe, Laufe, Laufe»), also 8 Anschläge pro Takt. Die linke Hand (für Fortgeschrittene) spielt den Grundton als ganze Note.',
   bars:[[SG(CHD('G',7,'dur',[62,67,71]),43,4)],[SG(CHD('Hm',11,'moll',[62,66,71]),47,4)],[SG(CHD('Em',4,'moll',[64,67,71]),52,4)],[SG(CHD('C',0,'dur',[64,67,72]),48,4)]]},
- {id:'shape',title:'Shape of You',lvl:2,key:'H-Moll',bpm:96,lh:'opt',pat:'seg',
+ {id:'shape',title:'Shape of You',lvl:1,key:'H-Moll',bpm:96,lh:'opt',pat:'seg',
   rhythm:'<b>Zwei Akkorde pro Takt</b>: jeder Akkord eine halbe Note («sta-ah»). Die linke Hand (für Fortgeschrittene) spielt den Grundton als halbe Note.',
   bars:[[SG(CHD('Hm',11,'moll',[62,66,71]),47,2),SG(CHD('Em',4,'moll',[64,67,71]),52,2)],[SG(CHD('G',7,'dur',[62,67,71]),43,2),SG(CHD('A',9,'dur',[61,64,69]),45,2)]]},
  {id:'havana',title:'Havana',lvl:3,key:'A-Moll',bpm:105,lh:'opt',pat:'havana',
   rhythm:'4 Takte, werden wiederholt (Am – F | E7 | Am – F | E7). <b>Rechte Hand, Takt 1 und 3:</b> Viertelpause, Akkord (Schlag 2), Viertelpause, Akkord (Schlag 4). <b>Takt 2:</b> Pause, Akkord auf Schlag 2 mit <b>Haltebogen</b> zur Achtel auf «3», dann Achtel und Viertel. <b>Takt 4:</b> Pause, Akkord auf Schlag 2, Achtelpause, dann drei Achtel. <b>Linke Hand</b> (für Fortgeschrittene), Takt 1 und 3: Viertel A, Achtelpause, Achtel A, Viertel F, Achtel F, Achtel E (mit Haltebogen in den nächsten Takt). Takt 2 und 4: Achtel E (gebunden), Achtel E, Viertel E, dann halbe Pause.',
   bars:[[SG(CHD('Am',9,'moll',[57,60,64]),45,2),SG(CHD('F',5,'dur',[57,60,65]),41,2)],[SG(CHD('E7',4,'dom7',[56,59,62,64]),40,4)],[SG(CHD('Am',9,'moll',[57,60,64]),45,2),SG(CHD('F',5,'dur',[57,60,65]),41,2)],[SG(CHD('E7',4,'dom7',[56,59,62,64]),40,4)]]},
- {id:'jack',title:'Hit the Road Jack',lvl:3,key:'C-Moll',bpm:87,lh:'req',swing:1,pat:'jack',
-  rhythm:'<b>Swing</b> (Original 173 BPM, zum Üben das halbe Tempo). 2 Takte, werden wiederholt (Cm, dann Ab7 und G7). <b>Linke Hand</b> (Pflicht): halbe Noten, Stufe für Stufe nach unten: C – B – As – G. <b>Rechte Hand, Takt 1:</b> Achtelpause, Akkord als punktierte Viertel (Schlag 1 «und»), dann ein Akkord auf Schlag 3 und ein Akkord auf Schlag 4 (der letzte nur mit zwei Tönen: c1 und es1). <b>Takt 2:</b> Ab7 als Viertel, Achtelpause, G7 als Achtel, dann halbe Pause. Die rechte Hand spielt 3-Ton-Akkorde ohne Grundton (den spielt die linke Hand).'}
+ {id:'jack',title:'Hit the Road Jack',lvl:3,key:'C-Moll',bpm:174,lh:'req',swing:1,pat:'jack',
+  rhythm:'<b>Swing</b>. 2 Takte, werden wiederholt (Cm, dann Ab7 und G7). <b>Linke Hand</b> (Pflicht): halbe Noten, Stufe für Stufe nach unten: C – B – As – G. <b>Rechte Hand, Takt 1:</b> Achtelpause, Akkord als punktierte Viertel (Schlag 1 «und»), dann ein Akkord auf Schlag 3 und ein Akkord auf Schlag 4 (der letzte nur mit zwei Tönen: c1 und es1). <b>Takt 2:</b> Ab7 als Viertel, Achtelpause, G7 als Achtel, dann halbe Pause. Die rechte Hand spielt 3-Ton-Akkorde ohne Grundton (den spielt die linke Hand).'}
 ];
 const AKL=['','einfach','mittel','schwierig'];
 const JCm=CHD('Cm',0,'moll',[60,63,67]),JAb=CHD('Ab7',8,'dom7',[60,63,66]),JG=CHD('G7',7,'dom7',[59,62,65]);
@@ -953,7 +954,7 @@ function akSong(m,sg,back){
   const bars=akBars(sg),chs=[];bars.forEach(b=>b.segs.forEach(x=>{if(!chs.some(c=>c.c===x.ch.c))chs.push(x.ch)}));
   const bt=html('<div class="row hide-b"><button class="btn sec" data-a="b">‹ Alle Lieder</button></div>');bt.onclick=e=>{if(e.target.dataset.a==='b')back()};m.append(bt);
   const segTxt=b=>b.segs.map(x=>x.ch.c).join(' ');
-  m.append(html(`<div class="card"><h2>${sg.title}</h2><div class="muted">Tonart ${sg.key} · Schwierigkeit: ${AKL[sg.lvl]} · Tempo ${sg.bpm} BPM${sg.id==='jack'?' (Original 173 BPM, halbes Tempo)':''}</div>
+  m.append(html(`<div class="card"><h2>${sg.title}</h2><div class="muted">Tonart ${sg.key} · Schwierigkeit: ${AKL[sg.lvl]} · Tempo ${sg.bpm} BPM</div>
     <p style="margin:10px 0 0"><b>Akkordfolge</b> (ein Takt = 4 Schläge, wird wiederholt): ${bars.map(b=>`<span class="pill" style="min-height:30px;padding:2px 10px">${segTxt(b)}</span>`).join(' → ')}</p>
     <p style="margin:8px 0 0"><b>Rhythmus:</b> ${sg.rhythm}</p></div>`));
   m.append(html('<h3 style="margin:16px 4px 6px">🎹 Die Akkorde</h3>'));
@@ -971,7 +972,7 @@ function akSong(m,sg,back){
     <div class="ctl"></div><div class="status small" style="margin:6px 0;min-height:20px"></div>
     <div class="ach" style="display:grid;grid-template-columns:repeat(${Math.min(4,bars.length)},1fr);gap:8px;margin:6px 0">${bars.map((b,i)=>`<div class="acell" data-i="${i}" style="border:2px solid var(--line);border-radius:10px;padding:6px;background:#fff"><div class="small muted">Takt ${i+1}</div><div style="display:flex;gap:2px;margin-top:4px">${b.segs.map(s=>`<div class="aseg" style="flex:${s.d};border-radius:6px;padding:6px 2px;text-align:center;font-weight:700;background:#f4f5fb">${s.ch.c}</div>`).join('')}</div></div>`).join('')}</div>
     <div class="kbp"></div>${sg.swing?'<div class="row" style="margin-top:8px"><button class="btn sec" data-a="s0">▶ Achtel gerade</button><button class="btn sec" data-a="s1">▶ Achtel swing</button></div>':''}</div>`);
-  const ctl=controls({bpm:sg.bpm,max:140,toggles:[['click','Klick',true],['rh','Rechte Hand hören',true],['rhp','Rechte Hand mitspielen',true],['lh','Linke Hand hören',lhReq],['lhp','Linke Hand mitspielen',lhReq]],onChange:()=>kb.paint({})});
+  const ctl=controls({bpm:sg.bpm,max:sg.bpm>120?200:140,toggles:[['click','Klick',true],['rh','Rechte Hand hören',true],['rhp','Rechte Hand mitspielen',true],['lh','Linke Hand hören',lhReq],['lhp','Linke Hand mitspielen',lhReq]],onChange:()=>kb.paint({})});
   $('.ctl',chart).append(ctl.el);
   const allN=bars.flatMap(b=>[...b.rh.flatMap(x=>x[2].n),...b.bass.map(x=>x[2])]);
   const kb=keyboard({},Math.min(...allN)-2,Math.max(...allN)+2);$('.kbp',chart).append(kb.el);
@@ -1311,7 +1312,7 @@ function go(v,sid){Eng.stop();document.body.classList.remove('beamer');$('#bx')?
 function render(){
   FLAT=false;
   const m=$('#main');m.innerHTML='';const bk=$('#back');bk.style.display=view==='home'?'none':'';$('#prB').style.display=view==='home'?'none':'';
-  bk.textContent=typeof view==='number'?'‹ '+CUR.title:'‹ Übersicht';
+  bk.textContent=typeof view==='number'?'‹ '+CUR.title:(view==='akk'&&AKS)?'‹ Alle Lieder':'‹ Übersicht';
   if(view==='home'){$('#ttl').textContent='Piano Levels';
     m.append(html(`<div class="card"><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Übe zuerst Puls und Rhythmus. Wähle dann ein Lied: Jedes Lied führt über seine Rhythmus-Bausteine bis zur gemeinsamen Akkordbegleitung.</p></div>`));
     m.append(html('<details class="card fold"><summary><h3>So funktioniert Piano Levels</h3></summary><p class="small" style="margin:0 0 .4rem">Du lernst Schritt für Schritt, ein Lied der Klasse zu spielen. Jedes Lied hat vier Level, die aufeinander aufbauen (bei Liedern mit Melodie kommt ein fünftes dazu):</p><ol class="small" style="margin:0 0 .5rem;padding-left:1.2rem"><li><b>Bausteine &amp; Rhythmus:</b> Du übst den Rhythmus des Lieds mit der <b>Rhythmussprache</b> (zum Beispiel «Schritt», «sta-ah», «Laufe») und tippst ihn im Takt mit. Das Level schliesst die App selbst ab.</li><li><b>Ein Ton:</b> Du spielst den Rhythmus auf einem einzigen Ton auf dem Piano.</li><li><b>Akkordtöne:</b> Die Klasse spielt in drei Gruppen den gleichen Rhythmus, jede Gruppe auf ihren eigenen Tönen.</li><li><b>Zusammen:</b> Alle Stimmen zusammen ergeben die Akkorde. Danach wird dazu gesungen.</li><li><b>Melodie</b> (nur bei Liedern mit Melodie): Du spielst die gesungene Melodie, die Begleitung läuft dazu.</li></ol><p class="small" style="margin:0 0 .4rem">Ab Level 2 bestätigt deine Lehrperson, dass du bereit bist, mit einem <b>Freigabewort</b>. Dann ist das nächste Level offen. Das Tempo startet beim Originaltempo des Lieds, du kannst es langsamer stellen. Die Metronom-Klicks helfen dir, den Puls zu halten. Alles wird auf deinem Gerät gespeichert. Die App lässt sich installieren und funktioniert auch ohne Internet.</p></details>'));
@@ -1339,7 +1340,8 @@ function render(){
       c.onclick=()=>{if(un)go(l.n);else toast('Schliesse zuerst Level '+(l.n-1)+' ab.')};m.append(c)})}
   else{const l=LEVELS[view-1];$('#ttl').textContent=CUR.title+' · Level '+l.n;l.f(m)}
 }
-$('#back').onclick=()=>go(typeof view==='number'?'song':'home');
+const backOne=()=>{if(view==='akk'&&AKS){Eng.stop();AKS=null;render();window.scrollTo(0,0)}else go(typeof view==='number'?'song':'home')};
+$('#back').onclick=backOne;
 $('#miniB').onclick=()=>go('mini');
 function printSheets(){
   const bpb=CUR.bpb||4,out=[],cols=['#222'];
@@ -1424,7 +1426,7 @@ function openAppFeedback(){var q=new URLSearchParams({app:'pianolevels',version:
 (function(){
  let depth=0,ign=0,raf=0;
  const isSub=()=>{try{return !!(view!=='home')}catch(e){return false}};
- const goBack=()=>{try{go(typeof view==='number'?'song':'home')}catch(e){}};
+ const goBack=()=>{try{backOne()}catch(e){}};
  window._navPush=()=>{try{if(!depth&&isSub()){history.pushState({sub:1},'');depth=1}}catch(e){}};
  function sync(){
   raf=0;const want=isSub();
