@@ -508,7 +508,7 @@ const starsTxt=p=>p==null?'':p>=95?'★★★':p>=85?'★★☆':p>=CONFIG.pass?
 
 function buildEx(body,def,card,levelN,onPass){
   const sc=renderScore({bars:def.bars,systems:def.systems,voices:[{label:'',color:'#222'}],events:(id,v)=>def.bars[id].v[v],words:true,per:def.per,bpb:def.bpb,ts:def.ts});sc.el.classList.add('nonames');if(def.swing)sc.el.classList.add('nowords');
-  const ctl=controls({bpm:def.bpm,max:140,toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true],['loop','🔁 Schleife',false]],onChange:(k,v)=>{if(k==='words')sc.el.classList.toggle('nowords',!v)}});
+  const ctl=controls({bpm:def.bpm,max:def.bpm>120?220:140,toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true],['loop','🔁 Schleife',false]],onChange:(k,v)=>{if(k==='words')sc.el.classList.toggle('nowords',!v)}});
   const pad=html('<div class="pad"><div style="text-align:center">Hier tippen<span style="display:block;font-size:14px;font-weight:600;letter-spacing:0;opacity:.85;margin-top:4px">statt klatschen: tippe im Takt auf diese Fläche</span></div></div>'),res=html('<div class="res" style="display:none"></div>');
   const btns=html(`<div class="row stick"><button class="btn sec" data-a="hear">▶ Vorhören</button><button class="btn sec" data-a="prac">Üben</button><button class="btn" data-a="test">Test</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
   body.append(btns,html('<div class="small muted" style="margin:0 0 4px"><b>Vorhören:</b> zuhören · <b>Üben:</b> mitklatschen, keine Wertung · <b>Test:</b> mit Wertung in %</div>'),ctl.el,sc.el,pad,res);
@@ -1412,8 +1412,8 @@ function blSt6(m,redraw){
 
 /* 7 Songs */
 const BLSONGS=[
- {id:'hound',yt:'Elvis Presley Hound Dog',ly:'https://genius.com/Elvis-presley-hound-dog-lyrics',title:'Hound Dog',lvl:1,bpm:88,form:'grund',rh:'quarter',
-  info:'Blues-Klassiker. Zuerst von Big Mama Thornton aufgenommen (1952), berühmt durch Elvis Presley (1956). Hier gilt die Elvis-Fassung. Sie hat ca. 176 BPM, wir zählen im halben Tempo: 88 BPM.',
+ {id:'hound',yt:'Elvis Presley Hound Dog',ly:'https://genius.com/Elvis-presley-hound-dog-lyrics',title:'Hound Dog',lvl:1,bpm:176,form:'grund',rh:'quarter',
+  info:'Blues-Klassiker. Zuerst von Big Mama Thornton aufgenommen (1952), berühmt durch Elvis Presley (1956). Hier gilt die Elvis-Fassung mit ca. 176 BPM (jeder Schlag im 4/4-Takt ein Viertel). Das ist schnell: Stell das Tempo zum Üben langsamer, zum Beispiel auf 88.',
   rhy:'<b>Viertel</b>: ein Akkord auf jeden Schlag. Du kannst unten auch einen anderen Rhythmus wählen, zum Beispiel Backbeat oder Shuffle.'},
  {id:'stlouis',yt:'Louis Armstrong St. Louis Blues',ly:'https://genius.com/Bessie-smith-st-louis-blues-lyrics',title:'St. Louis Blues',lvl:2,bpm:90,form:'grund',rh:'quarter',
   info:'Von W. C. Handy (1914), einer der ersten berühmten Blues-Songs. Das Original ist kein reiner 12-Takte-Blues: Es gibt zwei 12-Takte-Teile und dazwischen einen Moll-Teil im Tango-Rhythmus. Hier spielst du nur die <b>12 Takte</b>.',
@@ -1438,7 +1438,7 @@ function blSong(m,sg,back,redraw){
   const sw=BLRH[sg.rh].sw;
   m.append(exerciseCard(BLSEL('bl_song_'+sg.id+'_r','Rhythmus: '+BLRH[sg.rh].n,'Hören, sprechen, klatschen, testen. Dann kommt der Akkord dazu.',BLRH[sg.rh].tk,{bpm:sg.bpm,swing:sw?1:0}),null,blRefresh,0));
   m.append(html('<h3 style="margin:16px 4px 6px">② Die Begleitung spielen</h3>'));
-  m.append(blPlayer({rhythm:sg.rh,form:sg.form,fixForm:true,bpm:sg.bpm,max:140,words:true}).el);
+  m.append(blPlayer({rhythm:sg.rh,form:sg.form,fixForm:true,bpm:sg.bpm,max:sg.bpm>120?220:140,words:true}).el);
   m.append(blCheck('bl_song_'+sg.id,'Ich kann '+sg.title+' begleiten',()=>{blRefresh()}));
 }
 
