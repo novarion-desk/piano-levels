@@ -1075,7 +1075,9 @@ const BLRH={
  backs:{n:'Backbeat (Swing)',tk:'pSpL',sw:1}};
 const BLRG=[['gerade',['whole','half','quarter','back','stop','eighth','charl']],['Swing',['shuf','offb','charls','backs']]];
 const blHits=k=>tk(BLRH[k].tk,71).filter(e=>e.p!=null);
-const blBassHits=k=>k==='whole'?[[0,4]]:[[0,2],[2,2]];
+/* Bass: ganze Noten, halbe Noten oder Walking Bass (Viertel: Grundton, Terz, Quinte, Sexte) */
+const BLBM={whole:'Ganze Noten',half:'Halbe Noten',walk:'Walking Bass (Viertel)'};
+const blBassNotes=(ch,bm)=>{const r=BLBASS[ch];return bm==='whole'?[[0,4,r]]:bm==='walk'?[[0,1,r],[1,1,r+4],[2,1,r+7],[3,1,r+9]]:[[0,2,r],[2,2,r]]};
 function blRestFill(hits){const evs=[];let t=0;
   const gap=to=>{let g=to-t;while(g>1e-6){const u=g>=2?2:g>=1?1:g>=.5?.5:g;evs.push({b:t,d:u,p:null});t+=u;g-=u}};
   hits.slice().sort((a,b)=>a[0]-b[0]).forEach(([st,d,p])=>{gap(st);evs.push({b:st,d,p});t=st+d});gap(4);return evs}
@@ -1169,8 +1171,7 @@ function blBand(X,o){const form=BLFORM[o.form];
     for(let i=0;i<12;i++){const ch=form[i],b0=X.t0+(r*12+i)*4*X.spb;
       if(o.drum)for(let k=0;k<4;k++){const t=b0+k*X.spb,t2=b0+(k+(o.sw?2/3:.5))*X.spb;
         X.add(t,()=>Eng.drum(t,k%2?'s':'k'));X.add(t,()=>Eng.drum(t,'h',1));X.add(t2,()=>Eng.drum(t2,'h',.5))}
-      if(o.eb){if(o.ebm==='walk')[0,4,7,9].forEach((iv,k)=>{const t=b0+k*X.spb,n=BLBASS[ch]-12+iv;X.add(t,()=>Eng.tone(t,n,.8*X.spb,.95))});
-        else[0,2].forEach(k=>{const t=b0+k*X.spb,n=BLBASS[ch]-12;X.add(t,()=>Eng.tone(t,n,1.8*X.spb,.95))})}}
+      if(o.eb)blBassNotes(ch,o.bm).forEach(([b,d,p])=>{const t=b0+b*X.spb;X.add(t,()=>Eng.tone(t,p-12,d*.9*X.spb,.95))})}
     if(o.org){let i=0;while(i<12){let j=i;while(j+1<12&&form[j+1]===form[i])j++;const t=X.t0+(r*12+i)*4*X.spb,d=(j-i+1)*4*X.spb;
       blVoice(form[i],o.sev,o.fast).forEach(n=>X.add(t,()=>Eng.organ(t,n-12,d,1)));i=j+1}}}}
 const blScaleMap=()=>{const mp={};for(let m=55;m<=81;m++){const pc=m%12;if([0,3,5,7,10].includes(pc))mp[m]=AKCOL[0];else if(pc===6)mp[m]='#f59e0b'}return mp};
@@ -1178,7 +1179,7 @@ const blScaleMap=()=>{const mp={};for(let m=55;m<=81;m++){const pc=m%12;if([0,3,
 /* Spieler: 12-Takte-Schleife mit Rhythmus, Hände einzeln hören/mitspielen, Band (Schlagzeug, E-Bass, Orgel) */
 function blPlayer(o){
   const B=blS();
-  const st={rh:o.rhythm||'whole',form:o.form||'grund',sev:o.sev!=null?o.sev:!!B.sev,fast:B.fast!==false,bass:o.bass!=null?o.bass:!!B.bass,ebm:B.ebm||'root'};
+  const st={rh:o.rhythm||'whole',form:o.form||'grund',sev:o.sev!=null?o.sev:!!B.sev,fast:B.fast!==false,bass:o.bass!=null?o.bass:!!B.bass,bm:B.bm||'half'};
   const card=html(`<div class="card"><div class="row stick"><button class="btn" data-a="go">▶ Start</button></div><div class="opts"></div><div class="ctl"></div><div class="status small" style="margin:6px 0;min-height:20px"></div><div class="scs"></div><div class="grd"></div><div class="kbp"></div></div>`);
   const band=[['drum','Schlagzeug',!!o.improv],['eb','E-Bass',false],['org','Orgel',false]];
   const tg=o.improv?[['click','Klick',true],['rh','Akkorde der Begleitung hören',true],['lh','Bass hören',true],...band]
@@ -1189,16 +1190,16 @@ function blPlayer(o){
   $('.ctl',card).append(ctl.el);
   const evs=(v,i)=>{const ch=BLFORM[st.form][i],sw=rk.sw?swB:x=>x;
     if(v===0)return blHits(st.rh).flatMap(e=>blVoice(ch,st.sev,st.fast).map(p=>({b:sw(e.b),d:e.d,p})));
-    if(!st.bass)return[];return blBassHits(st.rh).map(([b,d])=>({b,d,p:BLBASS[ch]}))};
+    if(!st.bass)return[];return blBassNotes(ch,st.bm).map(([b,d,p])=>({b,d,p}))};
   const drawOpts=()=>{let h='';
     if(!o.fixRh)h+=BLRG.map(([g,ks])=>`<div class="small muted" style="margin-top:6px">Rhythmus der rechten Hand (${g})</div><div class="chips">${ks.map(k=>`<span class="pill ${st.rh===k?'on':''}" data-k="rh" data-v="${k}">${BLRH[k].n}</span>`).join('')}</div>`).join('');
     if(!o.fixForm)h+=`<div class="small muted">Form</div><div class="chips">${Object.keys(BLFORM).map(k=>`<span class="pill ${st.form===k?'on':''}" data-k="form" data-v="${k}">${BLFN[k]}</span>`).join('')}</div>`;
-    h+=`<div class="small muted">Spielweise</div><div class="chips"><span class="pill ${!st.fast?'on':''}" data-k="fast" data-v="0">Grundstellung</span><span class="pill ${st.fast?'on':''}" data-k="fast" data-v="1">schnellste Umkehrung</span><span class="pill ${st.sev?'on':''}" data-k="sev">Blues-Sound: Septime dazu</span><span class="pill ${st.bass?'on':''}" data-k="bass">Bass links</span></div><div class="small muted">E-Bass (wenn zugeschaltet)</div><div class="chips"><span class="pill ${st.ebm==='root'?'on':''}" data-k="ebm" data-v="root">Grundton</span><span class="pill ${st.ebm==='walk'?'on':''}" data-k="ebm" data-v="walk">Walking Bass (Viertel)</span></div>`;
+    h+=`<div class="small muted">Spielweise</div><div class="chips"><span class="pill ${!st.fast?'on':''}" data-k="fast" data-v="0">Grundstellung</span><span class="pill ${st.fast?'on':''}" data-k="fast" data-v="1">schnellste Umkehrung</span><span class="pill ${st.sev?'on':''}" data-k="sev">Blues-Sound: Septime dazu</span><span class="pill ${st.bass?'on':''}" data-k="bass">Bass links</span></div><div class="small muted">Bass (für «Bass links» und den E-Bass)</div><div class="chips">${Object.keys(BLBM).map(k=>`<span class="pill ${st.bm===k?'on':''}" data-k="bm" data-v="${k}">${BLBM[k]}</span>`).join('')}</div>`;
     $('.opts',card).innerHTML=h};
   const rebuild=()=>{Eng.stop();rk=BLRH[st.rh];drawOpts();FLAT='full';
     const form=BLFORM[st.form],bars={},sys=[];
     form.forEach((ch,i)=>{const nm=blNm(ch,st.sev),vo=blVoice(ch,st.sev,st.fast),v=[tk(rk.tk,71).map(e=>e.p!=null?{...e,p:vo[0],ch:vo}:e)];
-      if(st.bass)v.push(blRestFill(blBassHits(st.rh).map(([b,d])=>[b,d,BLBASS[ch]])));
+      if(st.bass)v.push(blRestFill(blBassNotes(ch,st.bm)));
       bars['b'+i]={ch:[[0,nm]],v}});
     const dense=tk(rk.tk,71).filter(e=>e.p!=null).length>4,per=dense?2:4;   // viele Akkorde pro Takt: nur 2 Takte pro Zeile, damit es lesbar bleibt
     for(let i=0;i<12;i+=per)sys.push(Array.from({length:per},(_,k)=>'b'+(i+k)));
@@ -1213,21 +1214,21 @@ function blPlayer(o){
     go.textContent='▶ Start';status.textContent=''};
   $('.opts',card).onclick=e=>{const p=e.target.closest('[data-k]');if(!p)return;const k=p.dataset.k,v=p.dataset.v;
     if(k==='rh')st.rh=v;else if(k==='form')st.form=v;
-    else if(k==='fast'){st.fast=v==='1';B.fast=st.fast}else if(k==='sev'){st.sev=!st.sev;B.sev=st.sev}else if(k==='bass'){st.bass=!st.bass;B.bass=st.bass}else if(k==='ebm'){st.ebm=v;B.ebm=v}
+    else if(k==='fast'){st.fast=v==='1';B.fast=st.fast}else if(k==='sev'){st.sev=!st.sev;B.sev=st.sev}else if(k==='bass'){st.bass=!st.bass;B.bass=st.bass}else if(k==='bm'){st.bm=v;B.bm=v}
     save();rebuild();o.onChange&&o.onChange(st)};
   const clear=()=>{cells.forEach(c=>{c.style.borderColor='var(--line)';c.style.background='#fff'});if(kb)kb.paint(o.improv?blScaleMap():{})};
   card.addEventListener('click',e=>{if(e.target.dataset.a!=='go')return;
     if(on){Eng.stop();return}Eng.ensure();on=true;go.textContent='■ Stopp';
     const ids=[];for(let r=0;r<40;r++)for(let i=0;i<12;i++)ids.push('b'+i);
     Eng.play({bpm:ctl.st.bpm,bpb:4,seq:ids,events:(v,id)=>evs(v,+id.slice(1)),audible:[ctl.st.rh,ctl.st.lh],click:ctl.st.click,
-      extra:X=>blBand(X,{drum:ctl.st.drum,eb:ctl.st.eb,org:ctl.st.org,form:st.form,sw:st.rh!=='eighth',ebm:st.ebm,sev:st.sev,fast:st.fast}),
+      extra:X=>blBand(X,{drum:ctl.st.drum,eb:ctl.st.eb,org:ctl.st.org,form:st.form,sw:st.rh!=='eighth',bm:st.bm,sev:st.sev,fast:st.fast}),
       onFrame:f=>{if(f.counting){status.textContent='Einzähler: '+f.countBeat;sc.count(f.countBeat);sc.hideCursor();return}
         sc.count(null);const bi=f.slot%12,ch=BLFORM[st.form][bi];sc.cursor('b'+bi,f.bb);
         status.textContent='Takt '+(bi+1)+' von 12 · '+blNm(ch,st.sev)+' · Schlag '+(Math.floor(f.bb)+1);
         cells.forEach((c,i)=>{c.style.borderColor=i===bi?'var(--ind)':'var(--line)';c.style.background=i===bi?'#c7d2fe':'#fff'});
         if(!o.improv){const mp={};
           if(ctl.st.rhp){const sw=rk.sw?swB:x=>x,h=blHits(st.rh).filter(e=>sw(e.b)<=f.bb+1e-6&&f.bb<sw(e.b)+e.d-1e-6).pop();if(h)blVoice(ch,st.sev,st.fast).forEach(n=>mp[n]=AKCOL[0])}
-          if(ctl.st.lhp&&st.bass){const bs=blBassHits(st.rh).filter(x=>x[0]<=f.bb+1e-6&&f.bb<x[0]+x[1]-1e-6).pop();if(bs)mp[BLBASS[ch]]=AKCOL[1]}
+          if(ctl.st.lhp&&st.bass){const bs=blBassNotes(ch,st.bm).filter(x=>x[0]<=f.bb+1e-6&&f.bb<x[0]+x[1]-1e-6).pop();if(bs)mp[bs[2]]=AKCOL[1]}
           kb.paint(mp)}},
       onEnd:()=>{on=false;go.textContent='▶ Start';status.textContent='';sc.count(null);sc.hideCursor();clear()}})});
   rebuild();
