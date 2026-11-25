@@ -482,7 +482,7 @@ function exerciseCard(def,levelN,onPass,idx){
 const starsTxt=p=>p==null?'':p>=95?'★★★':p>=85?'★★☆':p>=CONFIG.pass?'★☆☆':'☆☆☆ '+p+'%';
 
 function buildEx(body,def,card,levelN,onPass){
-  const sc=renderScore({bars:def.bars,systems:def.systems,voices:[{label:'',color:'#222'}],events:(id,v)=>def.bars[id].v[v],words:true,per:def.per,bpb:def.bpb,ts:def.ts});sc.el.classList.add('nonames');
+  const sc=renderScore({bars:def.bars,systems:def.systems,voices:[{label:'',color:'#222'}],events:(id,v)=>def.bars[id].v[v],words:true,per:def.per,bpb:def.bpb,ts:def.ts});sc.el.classList.add('nonames');if(def.swing)sc.el.classList.add('nowords');
   const ctl=controls({bpm:def.bpm,max:140,toggles:[['click','Klick',true],['bar','Balken',true],['words','Rhythmussprache',true],['loop','🔁 Schleife',false]],onChange:(k,v)=>{if(k==='words')sc.el.classList.toggle('nowords',!v)}});
   const pad=html('<div class="pad"><div style="text-align:center">Hier tippen<span style="display:block;font-size:14px;font-weight:600;letter-spacing:0;opacity:.85;margin-top:4px">statt klatschen: tippe im Takt auf diese Fläche</span></div></div>'),res=html('<div class="res" style="display:none"></div>');
   const btns=html(`<div class="row stick"><button class="btn sec" data-a="hear">▶ Vorhören</button><button class="btn sec" data-a="prac">Üben</button><button class="btn" data-a="test">Test</button><button class="btn bad" data-a="stop" style="display:none">■ Stopp</button></div>`);
@@ -492,11 +492,11 @@ function buildEx(body,def,card,levelN,onPass){
   const start=mode=>{res.style.display='none';sc.clearMarks();
     const clk=mode==='test'&&def.noClickTest?false:ctl.st.click;
     setRun(true);
-    Eng.play({bpm:ctl.st.bpm,bpb:def.bpb,cstep:def.cstep,seq:(mode!=='test'&&ctl.st.loop)?repeatAll(def.ids):def.ids,events:(v,id)=>def.bars[id].v[0],audible:[mode==='hear'],click:clk,tapVoice:mode==='test'?0:null,
+    Eng.play({bpm:ctl.st.bpm,bpb:def.bpb,cstep:def.cstep,seq:(mode!=='test'&&ctl.st.loop)?repeatAll(def.ids):def.ids,events:(v,id)=>def.swing?def.bars[id].v[0].map(e=>({...e,b:swB(e.b)})):def.bars[id].v[0],audible:[mode==='hear'],click:clk,tapVoice:mode==='test'?0:null,
       onFrame:f=>{if(f.counting){sc.count(f.countBeat);sc.hideCursor();sc.clearHl()}else{sc.count(null);if(ctl.st.bar){sc.cursor(f.id,f.bb);sc.hl(f.id,f.bb)}else{sc.hideCursor();sc.clearHl()}}},
       onEnd:(run,fin)=>{setRun(false);sc.count(null);sc.hideCursor();sc.clearHl();if(mode==='test'&&fin)showRes(run)}})};
   const showRes=run=>{if(def.dikt)sc.el.style.display='';const r=Eng.score(run);
-    r.res.forEach(x=>sc.mark(x.x.id,x.x.b,x.dt==null?'#dc2626':x.cr>=1?'#16a34a':'#f59e0b'));
+    r.res.forEach(x=>sc.mark(x.x.id,def.swing?unSwB(x.x.b):x.x.b,x.dt==null?'#dc2626':x.cr>=1?'#16a34a':'#f59e0b'));
     const ok=r.pct>=CONFIG.pass,ms=Math.round(r.avg*1000);
     if(!def.noSave){S.best[def.id]=Math.max(S.best[def.id]||0,r.pct);save()}
     res.style.display='';res.className='res '+(ok?'pass':'fail');
@@ -859,6 +859,7 @@ function baukasten(withInv){
     if(d.a==='h'||d.a==='a'){Eng.ensure();const c=Eng.ctx.currentTime+.05;chNotes(r,t,inv).forEach((m,i)=>Eng.tone(c+(d.a==='a'?i*.5:0),m,1.4,.6))}};
   draw();return card}
 
+const ytLink=q=>`<p style="margin:10px 0 0"><a class="btn sec" style="text-decoration:none;display:inline-flex;align-items:center" href="https://www.youtube.com/results?search_query=${encodeURIComponent(q)}" target="_blank" rel="noopener noreferrer">▶ Original auf YouTube suchen</a></p>`;
 let AKT='ein',AKS=null;
 function akkordProjekt(m){
   const redraw=()=>{m.innerHTML='';akkordProjekt(m)};
@@ -904,16 +905,16 @@ function akInv(m,redraw){
 const CHD=(c,r,t,n)=>({c,r,t,n});
 const SG=(ch,bass,d)=>({ch,bass,d});
 const AKSONGS=[
- {id:'himalaya',title:'Himalaya',lvl:1,key:'G-Dur',bpm:90,lh:'opt',pat:'eighth',
+ {id:'himalaya',yt:'Nemo Himalaya',title:'Himalaya',lvl:1,key:'G-Dur',bpm:90,lh:'opt',pat:'eighth',
   rhythm:'<b>Achtelnoten</b>: Die rechte Hand spielt den Akkord auf jedem Achtel («Laufe, Laufe, Laufe, Laufe»), also 8 Anschläge pro Takt. Die linke Hand (für Fortgeschrittene) spielt den Grundton als ganze Note.',
   bars:[[SG(CHD('G',7,'dur',[62,67,71]),43,4)],[SG(CHD('Hm',11,'moll',[62,66,71]),47,4)],[SG(CHD('Em',4,'moll',[64,67,71]),52,4)],[SG(CHD('C',0,'dur',[64,67,72]),48,4)]]},
- {id:'shape',title:'Shape of You',lvl:1,key:'H-Moll',bpm:96,lh:'opt',pat:'seg',
+ {id:'shape',yt:'Ed Sheeran Shape of You',title:'Shape of You',lvl:1,key:'H-Moll',bpm:96,lh:'opt',pat:'seg',
   rhythm:'<b>Zwei Akkorde pro Takt</b>: jeder Akkord eine halbe Note («sta-ah»). Die linke Hand (für Fortgeschrittene) spielt den Grundton als halbe Note.',
   bars:[[SG(CHD('Hm',11,'moll',[62,66,71]),47,2),SG(CHD('Em',4,'moll',[64,67,71]),52,2)],[SG(CHD('G',7,'dur',[62,67,71]),43,2),SG(CHD('A',9,'dur',[61,64,69]),45,2)]]},
- {id:'havana',title:'Havana',lvl:3,key:'A-Moll',bpm:105,lh:'opt',pat:'havana',
+ {id:'havana',yt:'Camila Cabello Havana',title:'Havana',lvl:3,key:'A-Moll',bpm:105,lh:'opt',pat:'havana',
   rhythm:'4 Takte, werden wiederholt (Am – F | E7 | Am – F | E7). <b>Rechte Hand, Takt 1 und 3:</b> Viertelpause, Akkord (Schlag 2), Viertelpause, Akkord (Schlag 4). <b>Takt 2:</b> Pause, Akkord auf Schlag 2 mit <b>Haltebogen</b> zur Achtel auf «3», dann Achtel und Viertel. <b>Takt 4:</b> Pause, Akkord auf Schlag 2, Achtelpause, dann drei Achtel. <b>Linke Hand</b> (für Fortgeschrittene), Takt 1 und 3: Viertel A, Achtelpause, Achtel A, Viertel F, Achtel F, Achtel E (mit Haltebogen in den nächsten Takt). Takt 2 und 4: Achtel E (gebunden), Achtel E, Viertel E, dann halbe Pause.',
   bars:[[SG(CHD('Am',9,'moll',[57,60,64]),45,2),SG(CHD('F',5,'dur',[57,60,65]),41,2)],[SG(CHD('E7',4,'dom7',[56,59,62,64]),40,4)],[SG(CHD('Am',9,'moll',[57,60,64]),45,2),SG(CHD('F',5,'dur',[57,60,65]),41,2)],[SG(CHD('E7',4,'dom7',[56,59,62,64]),40,4)]]},
- {id:'jack',title:'Hit the Road Jack',lvl:3,key:'C-Moll',bpm:174,lh:'req',swing:1,pat:'jack',
+ {id:'jack',yt:'Ray Charles Hit the Road Jack',title:'Hit the Road Jack',lvl:3,key:'C-Moll',bpm:174,lh:'req',swing:1,pat:'jack',
   rhythm:'<b>Swing</b>. 2 Takte, werden wiederholt (Cm, dann Ab7 und G7). <b>Linke Hand</b> (Pflicht): halbe Noten, Stufe für Stufe nach unten: C – B – As – G. <b>Rechte Hand, Takt 1:</b> Achtelpause, Akkord als punktierte Viertel (Schlag 1 «und»), dann ein Akkord auf Schlag 3 und ein Akkord auf Schlag 4 (der letzte nur mit zwei Tönen: c1 und es1). <b>Takt 2:</b> Ab7 als Viertel, Achtelpause, G7 als Achtel, dann halbe Pause. Die rechte Hand spielt 3-Ton-Akkorde ohne Grundton (den spielt die linke Hand).'}
 ];
 const AKL=['','einfach','mittel','schwierig'];
@@ -956,7 +957,7 @@ function akSong(m,sg,back){
   const segTxt=b=>b.segs.map(x=>x.ch.c).join(' ');
   m.append(html(`<div class="card"><h2>${sg.title}</h2><div class="muted">Tonart ${sg.key} · Schwierigkeit: ${AKL[sg.lvl]} · Tempo ${sg.bpm} BPM</div>
     <p style="margin:10px 0 0"><b>Akkordfolge</b> (ein Takt = 4 Schläge, wird wiederholt): ${bars.map(b=>`<span class="pill" style="min-height:30px;padding:2px 10px">${segTxt(b)}</span>`).join(' → ')}</p>
-    <p style="margin:8px 0 0"><b>Rhythmus:</b> ${sg.rhythm}</p></div>`));
+    <p style="margin:8px 0 0"><b>Rhythmus:</b> ${sg.rhythm}</p>${ytLink(sg.yt)}</div>`));
   m.append(html('<h3 style="margin:16px 4px 6px">🎹 Die Akkorde</h3>'));
   chs.forEach(ch=>{const lh=[];bars.forEach(b=>b.segs.filter(s=>s.ch.c===ch.c).forEach(s=>b.bass.forEach(x=>{if(!x[3]&&x[0]>=s.b-1e-6&&x[0]<s.b+s.d-1e-6&&!lh.includes(x[2]))lh.push(x[2])})));
     const kb=keyboard({},Math.min(...ch.n,...lh)-2,Math.max(...ch.n)+2),mp={};ch.n.forEach(n=>mp[n]=AKCOL[0]);lh.forEach(n=>mp[n]=AKCOL[1]);kb.paint(mp);
@@ -1009,6 +1010,436 @@ function akSong(m,sg,back){
     if(a==='s0'||a==='s1'){Eng.ensure();Eng.stop();const spb=60/sg.bpm,t0=Eng.ctx.currentTime+.1;
       for(let k=0;k<4;k++){Eng.click(t0+k*spb,k===0);Eng.tone(t0+k*spb,67,.3,.7);Eng.tone(t0+k*spb+spb*(a==='s1'?2/3:.5),67,.2,.6)}}};
   m.append(chart);
+}
+
+/* ================= Blues-Projekt ================= */
+const BLCH=['C','F','G'],BLR={C:0,F:5,G:7},BLROM={C:'I',F:'IV',G:'V'},BLCOL={C:'#4F46E5',F:'#059669',G:'#d97706'};
+const BLV={   // Griff der rechten Hand: Grundstellung bzw. «schnellste» Lage, ohne und mit Septime
+ grund:{C:[60,64,67],F:[65,69,72],G:[67,71,74]},
+ fast:{C:[60,64,67],F:[60,65,69],G:[59,62,67]},
+ grund7:{C:[60,64,67,70],F:[65,69,72,75],G:[67,71,74,77]},
+ fast7:{C:[60,64,67,70],F:[60,63,65,69],G:[59,62,65,67]}};
+const BLBASS={C:48,F:53,G:55};
+const BLFORM={
+ grund:['C','C','C','C','F','F','C','C','G','F','C','C'],
+ qc:['C','F','C','C','F','F','C','C','G','F','C','C'],
+ ta:['C','C','C','C','F','F','C','C','G','F','C','G'],
+ qcta:['C','F','C','C','F','F','C','C','G','F','C','G']};
+const BLFN={grund:'Grundform',qc:'Quick Change',ta:'Turnaround',qcta:'Quick Change + Turnaround'};
+const blS=()=>(S.bl=S.bl||{sev:false,bass:false,fast:true});
+const blVoice=(ch,sev,fast)=>BLV[(fast?'fast':'grund')+(sev?'7':'')][ch];
+const blNm=(ch,sev)=>ch+(sev?'7':'');
+const swB=b=>Math.abs(b%1-.5)<1e-6?b+1/6:b;
+const unSwB=b=>Math.abs(b%1-2/3)<1e-6?b-1/6:b;
+const BLRH={
+ whole:{n:'Ganze Noten',tk:'W'},
+ half:{n:'Halbe Noten',tk:'HH'},
+ quarter:{n:'Viertel',tk:'SSSS'},
+ back:{n:'Backbeat (Schlag 2 und 4)',tk:'pSpS'},
+ stop:{n:'Stop-Time',tk:'Sppp'},
+ eighth:{n:'Achtel (gerade)',tk:'LLLL'},
+ charl:{n:'Charleston',tk:'Qoh'},
+ shuf:{n:'Shuffle (Swing-Achtel)',tk:'LLLL',sw:1},
+ offb:{n:'Offbeat (Swing)',tk:'uouououo',sw:1},
+ charls:{n:'Charleston (Swing)',tk:'Qoh',sw:1},
+ backs:{n:'Backbeat (Swing)',tk:'pSpL',sw:1}};
+const BLRG=[['gerade',['whole','half','quarter','back','stop','eighth','charl']],['Swing',['shuf','offb','charls','backs']]];
+const blHits=k=>tk(BLRH[k].tk,71).filter(e=>e.p!=null);
+const blBassHits=k=>k==='whole'?[[0,4]]:[[0,2],[2,2]];
+function blRestFill(hits){const evs=[];let t=0;
+  const gap=to=>{let g=to-t;while(g>1e-6){const u=g>=2?2:g>=1?1:g>=.5?.5:g;evs.push({b:t,d:u,p:null});t+=u;g-=u}};
+  hits.slice().sort((a,b)=>a[0]-b[0]).forEach(([st,d,p])=>{gap(st);evs.push({b:st,d,p});t=st+d});gap(4);return evs}
+const blPress=(m,rep)=>{Eng.ensure();Eng.tone(Eng.ctx.currentTime+.02,m,rep||1.2,.7)};
+/* Kleinste Bewegung: beste Lage des Ziel-Akkords zum vorherigen Griff */
+function blBest(prev,r){let best=null;
+  for(let inv=0;inv<3;inv++)for(const sh of[-24,-12,0,12]){const n=chNotes(r,'dur',inv).map(x=>x+sh);if(n[0]<55||n[2]>84)continue;
+    const d=n.reduce((a,x,i)=>a+Math.abs(x-prev[i]),0);if(!best||d<best.d||(d===best.d&&inv<best.inv))best={n,inv,d}}
+  return best}
+const blLage=(r,inv)=>{let n=chNotes(r,'dur',inv);if(n[0]>=69)n=n.map(x=>x-12);if(n[0]<57)n=n.map(x=>x+12);return n};
+
+/* Mehrfachwahl-Quiz (Fragen mit Antwortknöpfen) */
+function mcQuiz(o){
+  const card=html(`<div class="card"><div class="row sp"><h3 style="margin:0">${o.title}</h3><span class="tag qs"></span></div><div class="small muted" style="margin:4px 0 8px">${o.desc}</div><div class="cq"></div></div>`);
+  const host=$('.cq',card),tag=$('.qs',card),N=o.n||6;let qs,qi,ok;
+  const stat=()=>{const b=S.best[o.id];tag.textContent=b==null?'noch offen':(b>=CONFIG.pass?'✓ ':'')+b+' %'};stat();
+  const mkQs=()=>{if(o.gen)return Array.from({length:N},()=>o.gen());const a=o.bank.slice(),r=[];while(r.length<N&&a.length)r.push(a.splice(Math.floor(Math.random()*a.length),1)[0]);return r};
+  const intro=()=>{Eng.stop();host.innerHTML=`<button class="btn" data-a="go">▶ Start (${N} Fragen)</button>`;host.onclick=e=>{if(e.target.dataset.a==='go'){qs=mkQs();qi=0;ok=0;ask()}}};
+  const ask=()=>{const q=qs[qi];let opts=q.opts.map((t,i)=>({t,i}));if(!q.fixed)opts.sort(()=>Math.random()-.5);
+    host.innerHTML=`<div class="small muted">Frage ${qi+1} von ${qs.length}</div><div style="font-size:19px;margin:6px 0">${q.q}</div>${q.play?'<div class="row" style="margin-bottom:8px"><button class="btn sec" data-a="pl">▶ Anhören</button></div>':''}<div class="row" style="gap:8px">${opts.map(x=>`<button class="btn sec" data-o="${x.i}">${x.t}</button>`).join('')}</div><div class="msg" style="min-height:26px;font-weight:700;margin-top:8px"></div><div class="row"><button class="btn" data-a="next" style="display:none">Weiter ›</button></div>`;
+    let done=false;
+    host.onclick=e=>{const b=e.target.closest('button');if(!b)return;
+      if(b.dataset.a==='pl'){Eng.ensure();q.play();return}
+      if(b.dataset.a==='next'){Eng.stop();qi++;qi>=qs.length?end():ask();return}
+      if(b.dataset.o!=null&&!done){done=true;const good=+b.dataset.o===q.ans;if(good)ok++;
+        host.querySelectorAll('[data-o]').forEach(x=>{x.disabled=true;if(+x.dataset.o===q.ans)x.style.background='#bbf7d0';else if(x===b)x.style.background='#fecaca'});
+        const msg=$('.msg',host);msg.style.color=good?'var(--ok)':'var(--bad)';msg.innerHTML=(good?'✓ Richtig! ':'✗ Nicht ganz. ')+(q.exp?`<span class="muted" style="font-weight:400">${q.exp}</span>`:'');
+        $('[data-a=next]',host).style.display=''}};
+    if(q.play&&q.auto)setTimeout(()=>{if(host.isConnected){Eng.ensure();q.play()}},250)};
+  const end=()=>{const pct=Math.round(100*ok/qs.length);S.best[o.id]=Math.max(S.best[o.id]||0,pct);save();stat();o.onDone&&o.onDone();
+    host.innerHTML=`<div style="font-size:20px;font-weight:700;color:${pct>=CONFIG.pass?'var(--ok)':'var(--warn)'}">${ok} von ${qs.length} richtig (${pct} %)</div><p class="small muted">${pct>=CONFIG.pass?'Bestanden!':'Zum Bestehen brauchst du '+CONFIG.pass+' %. Probier es nochmals.'}</p><button class="btn" data-a="go">Nochmals</button>`;
+    host.onclick=e=>{if(e.target.dataset.a==='go'){qs=mkQs();qi=0;ok=0;ask()}}};
+  intro();return card}
+
+/* Echo-Aufgabe: Tonfolge hören und auf dem Piano nachspielen */
+function echoQuiz(o){
+  const card=html(`<div class="card"><div class="row sp"><h3 style="margin:0">${o.title}</h3><span class="tag qs"></span></div><div class="small muted" style="margin:4px 0 8px">${o.desc}</div><div class="cq"></div></div>`);
+  const host=$('.cq',card),tag=$('.qs',card),N=o.n||6;let qs,qi,ok;
+  const stat=()=>{const b=S.best[o.id];tag.textContent=b==null?'noch offen':(b>=CONFIG.pass?'✓ ':'')+b+' %'};stat();
+  const playPat=pat=>{Eng.ensure();const t0=Eng.ctx.currentTime+.05;pat.forEach((m,i)=>Eng.tone(t0+i*.55,m,.7,.8))};
+  const intro=()=>{host.innerHTML=`<button class="btn" data-a="go">▶ Start (${N} Aufgaben)</button>`;host.onclick=e=>{if(e.target.dataset.a==='go'){qs=Array.from({length:N},()=>o.gen());qi=0;ok=0;ask()}}};
+  const ask=()=>{const pat=qs[qi],seq=[];let done=false;
+    host.innerHTML=`<div class="small muted">Aufgabe ${qi+1} von ${N}</div><div style="font-size:19px;margin:6px 0">Höre die Tonfolge (<b>${pat.length} Töne</b>) und spiele sie nach.</div><div class="row" style="margin-bottom:6px"><button class="btn sec" data-a="pl">▶ Nochmals hören</button></div><div class="kbh"></div><div class="small" style="margin:6px 0;min-height:22px">Du hast gespielt: <b class="pr">–</b></div><div class="msg" style="min-height:26px;font-weight:700"></div><div class="row"><button class="btn" data-a="next" style="display:none">Weiter ›</button></div>`;
+    FLAT='full';
+    const kbq=keyboard({onKey:m=>{if(done)return;seq.push(m);$('.pr',host).textContent=seq.map(nameOf).join(' – ');
+      if(seq.length>=pat.length){done=true;const good=seq.every((x,i)=>x%12===pat[i]%12),msg=$('.msg',host);if(good)ok++;
+        msg.style.color=good?'var(--ok)':'var(--bad)';msg.innerHTML=good?'✓ Richtig!':`✗ Nicht ganz. <span class="muted" style="font-weight:400">Gesucht: ${pat.map(nameOf).join(' – ')}</span>`;$('[data-a=next]',host).style.display=''}}},58,74);
+    $('.kbh',host).append(kbq.el);
+    host.onclick=e=>{const a=e.target.dataset.a;if(a==='pl')playPat(pat);if(a==='next'){qi++;qi>=N?end():ask()}};
+    setTimeout(()=>{if(host.isConnected)playPat(pat)},250)};
+  const end=()=>{const pct=Math.round(100*ok/N);S.best[o.id]=Math.max(S.best[o.id]||0,pct);save();stat();o.onDone&&o.onDone();
+    host.innerHTML=`<div style="font-size:20px;font-weight:700;color:${pct>=CONFIG.pass?'var(--ok)':'var(--warn)'}">${ok} von ${N} richtig (${pct} %)</div><p class="small muted">${pct>=CONFIG.pass?'Bestanden!':'Zum Bestehen brauchst du '+CONFIG.pass+' %. Probier es nochmals.'}</p><button class="btn" data-a="go">Nochmals</button>`;
+    host.onclick=e=>{if(e.target.dataset.a==='go'){qs=Array.from({length:N},()=>o.gen());qi=0;ok=0;ask()}}};
+  intro();return card}
+
+/* Lückenschema: fehlende Akkorde im 12-Takte-Schema einsetzen */
+function blGap(o){
+  const card=html(`<div class="card"><div class="row sp"><h3 style="margin:0">${o.title}</h3><span class="tag qs"></span></div><div class="small muted" style="margin:4px 0 8px">${o.desc}</div><div class="gp"></div></div>`);
+  const host=$('.gp',card),tag=$('.qs',card),form=BLFORM.grund;let blank,user,checked;
+  const stat=()=>{const b=S.best[o.id];tag.textContent=b==null?'noch offen':(b>=CONFIG.pass?'✓ ':'')+b+' %'};stat();
+  const fresh=()=>{const idx=[1,2,3,4,5,6,7,8,9,10,11].sort(()=>Math.random()-.5).slice(0,7);blank=new Set(idx);user={};checked=false;draw()};
+  const draw=()=>{host.innerHTML=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0">${form.map((ch,i)=>{
+      if(!blank.has(i))return `<div style="border:2px solid var(--line);border-radius:10px;padding:6px;text-align:center;background:#f4f5fb"><div class="small muted">Takt ${i+1}</div><div style="font-weight:800;font-size:20px;color:${BLCOL[ch]}">${ch}</div></div>`;
+      const u=user[i],good=checked&&u===ch,bad=checked&&u!==ch;
+      return `<button data-i="${i}" style="border:2px solid ${good?'#16a34a':bad?'#dc2626':'var(--ind)'};border-radius:10px;padding:6px;text-align:center;background:${good?'#bbf7d0':bad?'#fecaca':'#fff'};font:inherit;cursor:pointer"><div class="small muted">Takt ${i+1}</div><div style="font-weight:800;font-size:20px;color:${u?BLCOL[u]:'#999'}">${u||'?'}</div>${bad?`<div class="small">richtig: ${ch}</div>`:''}</button>`}).join('')}</div>
+      <div class="small muted">Tippe auf ein Feld mit «?»: Es wechselt zwischen C, F und G.</div><div class="msg" style="min-height:26px;font-weight:700;margin:6px 0"></div>
+      <div class="row"><button class="btn" data-a="chk">Prüfen</button><button class="btn sec" data-a="new">Neues Schema</button></div>`};
+  host.onclick=e=>{const b=e.target.closest('button');if(!b)return;
+    if(b.dataset.i!=null&&!checked){const i=+b.dataset.i,seq=['',...BLCH];user[i]=seq[(seq.indexOf(user[i]||'')+1)%4]||undefined;draw();return}
+    if(b.dataset.a==='new'){fresh();return}
+    if(b.dataset.a==='chk'&&!checked){const n=[...blank].filter(i=>user[i]===form[i]).length,pct=Math.round(100*n/blank.size);checked=true;
+      S.best[o.id]=Math.max(S.best[o.id]||0,pct);save();stat();o.onDone&&o.onDone();draw();
+      const msg=$('.msg',host);msg.style.color=pct>=CONFIG.pass?'var(--ok)':'var(--warn)';msg.textContent=`${n} von ${blank.size} richtig (${pct} %). ${pct>=CONFIG.pass?'Bestanden!':'Probier es mit einem neuen Schema nochmals.'}`}};
+  fresh();return card}
+
+/* Selbstkontrolle: «Ich habe es geschafft» */
+function blCheck(id,text,onChange){
+  const c=html(`<div class="card hide-b"><div class="row sp"><b>${text}</b><span class="pill ${akPass(id)?'on':''}" data-a="t">${akPass(id)?'✓ geschafft':'Ich habe es geschafft'}</span></div></div>`);
+  c.onclick=e=>{if(e.target.dataset.a!=='t')return;S.best[id]=akPass(id)?0:100;save();const p=$('[data-a=t]',c);p.classList.toggle('on',akPass(id));p.textContent=akPass(id)?'✓ geschafft':'Ich habe es geschafft';onChange&&onChange()};
+  return c}
+
+/* Swing hören: Achtelpaare gerade oder swing */
+function swingDemo(sw,bpm){Eng.ensure();Eng.stop();const spb=60/(bpm||84),t0=Eng.ctx.currentTime+.15;
+  for(let k=0;k<8;k++){Eng.click(t0+k*spb,k%4===0);Eng.tone(t0+k*spb,67,.25,.7);Eng.tone(t0+k*spb+spb*(sw?2/3:.5),67,.2,.5)}}
+/* Rhythmus auf dem C-Akkord hören (2 Takte) */
+function blHear(key,bpm){Eng.ensure();Eng.stop();const spb=60/(bpm||84),t0=Eng.ctx.currentTime+.15,sw=BLRH[key].sw;
+  for(let k=0;k<8;k++)Eng.click(t0+k*spb,k%4===0);
+  for(let bar=0;bar<2;bar++)blHits(key).forEach(e=>{const t=t0+(bar*4+(sw?swB(e.b):e.b))*spb;BLV.grund.C.forEach(m=>Eng.tone(t,m,Math.max(.3,e.d*spb),.7))})}
+
+/* Spieler: 12-Takte-Schleife mit Rhythmus, Hände einzeln hören/mitspielen */
+function blPlayer(o){
+  const B=blS();
+  const st={rh:o.rhythm||'whole',form:o.form||'grund',sev:o.sev!=null?o.sev:!!B.sev,fast:B.fast!==false,bass:o.bass!=null?o.bass:!!B.bass};
+  const card=html(`<div class="card"><div class="row stick"><button class="btn" data-a="go">▶ Start</button></div><div class="opts"></div><div class="ctl"></div><div class="status small" style="margin:6px 0;min-height:20px"></div><div class="scs"></div><div class="grd"></div><div class="kbp"></div></div>`);
+  const tg=o.improv?[['click','Klick',true],['rh','Akkorde der Begleitung hören',true],['lh','Bass hören',true]]
+    :[['click','Klick',true],['rh','Rechte Hand hören',true],['rhp','Rechte Hand mitspielen',true],['lh','Linke Hand hören',true],['lhp','Linke Hand mitspielen',true]];
+  let rsc,lsc,kb,cells=[],on=false,rk;
+  const go=$('[data-a=go]',card),status=$('.status',card);
+  const ctl=controls({bpm:o.bpm||80,max:o.max||140,toggles:tg,onChange:()=>{if(kb)kb.paint(o.improv?scaleMap():{})}});
+  $('.ctl',card).append(ctl.el);
+  const scaleMap=()=>{const mp={};for(let m=55;m<=81;m++){const pc=m%12;if([0,3,5,7,10].includes(pc))mp[m]=AKCOL[0];else if(pc===6)mp[m]='#f59e0b'}return mp};
+  const evs=(v,i)=>{const ch=BLFORM[st.form][i],sw=rk.sw?swB:x=>x;
+    if(v===0)return blHits(st.rh).flatMap(e=>blVoice(ch,st.sev,st.fast).map(p=>({b:sw(e.b),d:e.d,p})));
+    if(!st.bass)return[];return blBassHits(st.rh).map(([b,d])=>({b,d,p:BLBASS[ch]}))};
+  const drawOpts=()=>{let h='';
+    if(!o.fixRh)h+=BLRG.map(([g,ks])=>`<div class="small muted" style="margin-top:6px">Rhythmus (${g})</div><div class="chips">${ks.map(k=>`<span class="pill ${st.rh===k?'on':''}" data-k="rh" data-v="${k}">${BLRH[k].n}</span>`).join('')}</div>`).join('');
+    if(!o.fixForm)h+=`<div class="small muted">Form</div><div class="chips">${Object.keys(BLFORM).map(k=>`<span class="pill ${st.form===k?'on':''}" data-k="form" data-v="${k}">${BLFN[k]}</span>`).join('')}</div>`;
+    h+=`<div class="small muted">Spielweise</div><div class="chips"><span class="pill ${!st.fast?'on':''}" data-k="fast" data-v="0">Grundstellung</span><span class="pill ${st.fast?'on':''}" data-k="fast" data-v="1">schnellste Umkehrung</span><span class="pill ${st.sev?'on':''}" data-k="sev">Blues-Sound: Septime dazu</span><span class="pill ${st.bass?'on':''}" data-k="bass">Bass links</span></div>`;
+    $('.opts',card).innerHTML=h};
+  const rebuild=()=>{Eng.stop();rk=BLRH[st.rh];drawOpts();FLAT='full';
+    const form=BLFORM[st.form],rb={},lb={},rsys=[],lsys=[];
+    form.forEach((ch,i)=>{const nm=blNm(ch,st.sev);rb['r'+i]={ch:[[0,nm]],v:[tk(rk.tk,71)]};
+      lb['l'+i]={ch:[[0,nm]],v:[blRestFill(blBassHits(st.rh).map(([b,d])=>[b,d,BLBASS[ch]]))]}});
+    for(let i=0;i<12;i+=4){rsys.push([0,1,2,3].map(k=>'r'+(i+k)));lsys.push([0,1,2,3].map(k=>'l'+(i+k)))}
+    const sc=$('.scs',card);sc.innerHTML='';
+    rsc=renderScore({bars:rb,systems:rsys,flat:'full',bpb:4,voices:[{label:'Rechte Hand'+(rk.sw?' (Swing)':''),color:'#4F46E5'}],voiceLabel:true,colorNotes:true,events:(id)=>rb[id].v[0],words:false});
+    rsc.el.classList.add('nonames');sc.append(rsc.el);lsc=null;
+    if(st.bass){lsc=renderScore({bars:lb,systems:lsys,flat:'full',bpb:4,bass:true,voices:[{label:'Linke Hand (Bass)',color:'#16a34a'}],voiceLabel:true,colorNotes:true,events:(id)=>lb[id].v[0],words:false});lsc.follow=false;lsc.el.classList.add('nonames');sc.append(lsc.el)}
+    $('.grd',card).innerHTML=`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0">${form.map((ch,i)=>`<div class="bc" style="border:2px solid var(--line);border-radius:10px;padding:6px;text-align:center;background:#fff"><div class="small muted">Takt ${i+1}</div><div style="font-weight:800;font-size:20px;color:${BLCOL[ch]}">${blNm(ch,st.sev)}</div><div class="small muted">${BLROM[ch]}</div></div>`).join('')}</div>`;
+    cells=[...card.querySelectorAll('.bc')];
+    FLAT='full';kb=keyboard({},st.bass||o.improv?46:57,o.improv?81:80);$('.kbp',card).innerHTML='';$('.kbp',card).append(kb.el);kb.paint(o.improv?scaleMap():{});
+    go.textContent='▶ Start';status.textContent=''};
+  $('.opts',card).onclick=e=>{const p=e.target.closest('[data-k]');if(!p)return;const k=p.dataset.k,v=p.dataset.v;
+    if(k==='rh')st.rh=v;else if(k==='form')st.form=v;
+    else if(k==='fast'){st.fast=v==='1';B.fast=st.fast}else if(k==='sev'){st.sev=!st.sev;B.sev=st.sev}else if(k==='bass'){st.bass=!st.bass;B.bass=st.bass}
+    save();rebuild();o.onChange&&o.onChange(st)};
+  const clear=()=>{cells.forEach(c=>{c.style.borderColor='var(--line)';c.style.background='#fff'});if(kb)kb.paint(o.improv?scaleMap():{})};
+  card.addEventListener('click',e=>{if(e.target.dataset.a!=='go')return;
+    if(on){Eng.stop();return}Eng.ensure();on=true;go.textContent='■ Stopp';
+    const ids=[];for(let r=0;r<40;r++)for(let i=0;i<12;i++)ids.push('b'+i);
+    Eng.play({bpm:ctl.st.bpm,bpb:4,seq:ids,events:(v,id)=>evs(v,+id.slice(1)),audible:[ctl.st.rh,ctl.st.lh],click:ctl.st.click,
+      onFrame:f=>{if(f.counting){status.textContent='Einzähler: '+f.countBeat;rsc.count(f.countBeat);rsc.hideCursor();if(lsc)lsc.hideCursor();return}
+        rsc.count(null);const bi=f.slot%12,ch=BLFORM[st.form][bi];rsc.cursor('r'+bi,f.bb);if(lsc)lsc.cursor('l'+bi,f.bb);
+        status.textContent='Takt '+(bi+1)+' von 12 · '+blNm(ch,st.sev)+' · Schlag '+(Math.floor(f.bb)+1);
+        cells.forEach((c,i)=>{c.style.borderColor=i===bi?'var(--ind)':'var(--line)';c.style.background=i===bi?'#c7d2fe':'#fff'});
+        if(!o.improv){const mp={};
+          if(ctl.st.rhp){const sw=rk.sw?swB:x=>x,h=blHits(st.rh).filter(e=>sw(e.b)<=f.bb+1e-6&&f.bb<sw(e.b)+e.d-1e-6).pop();if(h)blVoice(ch,st.sev,st.fast).forEach(n=>mp[n]=AKCOL[0])}
+          if(ctl.st.lhp&&st.bass){const bs=blBassHits(st.rh).filter(x=>x[0]<=f.bb+1e-6&&f.bb<x[0]+x[1]-1e-6).pop();if(bs)mp[BLBASS[ch]]=AKCOL[1]}
+          kb.paint(mp)}},
+      onEnd:()=>{on=false;go.textContent='▶ Start';status.textContent='';rsc.count(null);rsc.hideCursor();if(lsc)lsc.hideCursor();clear()}})});
+  rebuild();
+  return{el:card,st,set(p){Object.assign(st,p.st||{});if(p.bpm){const r=$('input',ctl.el);r.value=p.bpm;r.dispatchEvent(new Event('input'))}rebuild()}}}
+
+/* ===== Stufen ===== */
+const BLTABS=[[1,'🎹','Akkorde'],[2,'🔀','Wechsel'],[3,'🔁','12 Takte'],[4,'🥁','Rhythmen'],[5,'🎷','Swing'],[6,'▶️','Spielen'],[7,'🎵','Songs'],[8,'🎼','Tonleiter'],[9,'🎤','Improvisieren']];
+const BLDONE={1:['bl_q1','bl_t1'],2:['bl_q2','bl_q3'],3:['bl_t2','bl_t3'],4:['bl_r1','bl_r2','bl_r3','bl_r4','bl_r5','bl_r6','bl_r7'],5:['bl_s1','bl_s2','bl_s3','bl_s4','bl_s5','bl_s6','bl_t4','bl_t5'],
+  6:['bl_p1','bl_p2','bl_p3','bl_p4'],7:['bl_song_hound','bl_song_stlouis','bl_song_sweet'],8:['bl_e1','bl_t6'],9:['bl_i1','bl_i2','bl_i3']};
+const blStageOk=n=>BLDONE[n].every(akPass);
+let BLT=1,BLS=null,BLTB=null;
+const blTabsHtml=()=>BLTABS.map(t=>`<button data-t="${t[0]}" class="${BLT===t[0]?'on':''}">${t[1]} ${t[0]}. ${t[2]}${blStageOk(t[0])?' ✓':''}</button>`).join('');
+const blRefresh=()=>{if(BLTB&&BLTB.isConnected)BLTB.innerHTML=blTabsHtml()};
+const blSevSwitch=redraw=>{const B=blS(),c=html(`<div class="card"><div class="row sp"><div><b>Blues-Sound: Septime dazu</b><div class="small muted">Aus C, F und G werden C7, F7 und G7 (4 Töne). Das klingt bluesiger. Es ist eine Option.</div></div><span class="pill ${B.sev?'on':''}" data-a="s">${B.sev?'ein':'aus'}</span></div></div>`);
+  c.onclick=e=>{if(e.target.dataset.a==='s'){B.sev=!B.sev;save();redraw()}};return c};
+const blKeysTxt=(ch,sev)=>{FLAT='full';const t=tonesTxt(blVoice(ch,sev,false));return t};
+
+function bluesProject(m){
+  FLAT='full';
+  const redraw=()=>{m.innerHTML='';bluesProject(m)};
+  $('#back').textContent=(BLT===7&&BLS)?'‹ Alle Songs':'‹ Übersicht';
+  m.append(html(`<div class="card"><h2>🎷 Blues-Projekt</h2><p class="muted" style="margin:0">Du lernst den Blues in C-Dur: die drei Akkorde, den Wechsel dazwischen, die 12 Takte, Swing-Rhythmen, drei Songs, die Blues-Tonleiter und das Improvisieren. Geh der Reihe nach vor (1 bis 9). Jeder Schüler spielt immer den ganzen Akkord.</p></div>`));
+  const tabs=html(`<div class="row hide-b" style="margin:4px 0 10px"><div class="seg wrap">${blTabsHtml()}</div></div>`);BLTB=$('.seg',tabs);
+  tabs.onclick=e=>{const b=e.target.closest('button');if(b){BLT=+b.dataset.t;BLS=null;Eng.stop();redraw();window.scrollTo(0,0)}};
+  m.append(tabs);
+  [null,blSt1,blSt2,blSt3,blSt4,blSt5,blSt6,blSt7,blSt8,blSt9][BLT](m,redraw);
+  const nx=html(`<div class="card hide-b"><div class="row">${BLT>1?'<button class="btn sec" data-d="-1">‹ Stufe '+(BLT-1)+'</button>':''}${BLT<9?'<button class="btn" data-d="1">Weiter zu Stufe '+(BLT+1)+' ›</button>':''}</div></div>`);
+  nx.onclick=e=>{const d=+e.target.dataset.d;if(d){BLT+=d;BLS=null;Eng.stop();redraw();window.scrollTo(0,0)}};m.append(nx)}
+
+/* 1 Akkorde */
+function blSt1(m,redraw){
+  m.append(html(`<div class="card"><h3>Der Blues braucht nur drei Akkorde</h3>
+   <p>Ein <b>Dreiklang</b> hat 3 Töne. Im Blues in C-Dur brauchst du genau drei davon. Sie stehen auf der <b>1., 4. und 5. Stufe</b> der C-Dur-Tonleiter (c – d – e – <b>f</b> – <b>g</b> – a – h – c). Man schreibt die Stufen mit römischen Zahlen.</p>
+   <table class="t"><tr><th>Stufe</th><th>Akkord</th><th>Töne</th><th>Rolle</th></tr>
+   ${BLCH.map(c=>`<tr><td><b>${BLROM[c]}</b></td><td><b style="color:${BLCOL[c]}">${c}-Dur</b></td><td>${tonesTxt(BLV.grund[c])}</td><td>${{C:'«Zuhause», hier fühlt es sich ruhig an',F:'«ein Schritt weg», bringt Bewegung',G:'«Spannung», will zurück zum C'}[c]}</td></tr>`).join('')}</table>
+   <p class="small muted" style="margin:10px 0 0"><b>Jeder Schüler spielt den ganzen Akkord</b>: alle drei Töne gleichzeitig, mit der rechten Hand. Der Akkord ist in <b>Grundstellung</b> gebaut: Der Grundton (der Name des Akkords) liegt ganz unten.</p></div>`));
+  m.append(blSevSwitch(redraw));
+  const sev=blS().sev;
+  BLCH.forEach(ch=>{const n=blVoice(ch,sev,false),kb=keyboard({},Math.min(...n)-2,Math.max(...n)+2),mp={};n.forEach((x,i)=>mp[x]=AKCOL[Math.min(i,3)]);kb.paint(mp);
+    const c=html(`<div class="card"><div class="row sp"><h3 style="margin:0;color:${BLCOL[ch]}">${blNm(ch,sev)} (${BLROM[ch]}. Stufe)</h3><span class="tag">${sev?'4 Töne':'3 Töne'}</span></div><p class="small" style="margin:6px 0">Alle Töne zusammen: <b>${tonesTxt(n)}</b></p><div class="kk"></div><div class="row" style="margin-top:8px"><button class="btn sec" data-a="h">▶ hören</button><button class="btn sec" data-a="a">▶ nacheinander</button></div></div>`);
+    $('.kk',c).append(kb.el);c.onclick=e=>{const a=e.target.dataset.a;if(a){Eng.ensure();const t=Eng.ctx.currentTime+.05;n.forEach((x,i)=>Eng.tone(t+(a==='a'?i*.5:0),x,1.4,.6))}};m.append(c)});
+  m.append(html('<h3 style="margin:18px 4px 6px">Übungen</h3>'));
+  m.append(chordQuiz({id:'bl_q1',title:'Übung 1: C, F oder G spielen',desc:'Du bekommst einen der drei Akkorde genannt und drückst alle Töne (Grundstellung, Grundton ganz unten).',gen:()=>({stages:[stChord(rnd([0,5,7]),'dur',null)]}),n:6,onDone:blRefresh}));
+  m.append(mcQuiz({id:'bl_t1',title:'Übung 2: Fragen zu den Akkorden',desc:'Stufen und Töne der drei Blues-Akkorde.',n:6,onDone:blRefresh,bank:[
+    {q:'Welche drei Akkorde braucht der Blues in C-Dur?',opts:['C, F, G','C, D, E','C, G, A','D, F, A'],ans:0,exp:'Es sind die Akkorde der 1., 4. und 5. Stufe.'},
+    {q:'Welche Stufe ist der Akkord <b>F</b> in C-Dur?',opts:['I','IV','V','II'],ans:1,exp:'c – d – e – f: F ist der 4. Ton, also die IV. Stufe.'},
+    {q:'Welche Stufe ist der Akkord <b>G</b> in C-Dur?',opts:['I','IV','V','III'],ans:2,exp:'G ist der 5. Ton der Tonleiter.'},
+    {q:'Aus welchen Tönen besteht <b>C-Dur</b>?',opts:['c – e – g','c – f – a','c – d – g','c – es – g'],ans:0,exp:'c – e – g: Grundton, +4 Tasten, +3 Tasten.'},
+    {q:'Aus welchen Tönen besteht <b>F-Dur</b>?',opts:['f – a – c','f – g – a','f – as – c','f – a – d'],ans:0,exp:'f – a – c: Grundton, +4 Tasten, +3 Tasten.'},
+    {q:'Aus welchen Tönen besteht <b>G-Dur</b>?',opts:['g – h – d','g – a – d','g – b – d','g – h – e'],ans:0,exp:'g – h – d: Grundton, +4 Tasten, +3 Tasten.'},
+    {q:'Wie viele Töne hat ein Dreiklang?',opts:['2','3','4','5'],ans:1,exp:'Ein Dreiklang hat drei Töne.'},
+    {q:'Was ändert sich bei C7 gegenüber C?',opts:['Es kommt ein 4. Ton dazu (b)','Der Akkord wird Moll','Der Grundton wechselt','Es fällt ein Ton weg'],ans:0,exp:'C7 = c – e – g – b. Die Septime macht den Klang bluesiger.'}]}));
+  m.append(chordQuiz({id:'bl_q1b',title:'Zusatz: Septakkorde C7, F7, G7',desc:'Freiwillig: Dur-Dreiklang plus kleine Septime (4 Töne).',gen:()=>{const r=rnd([0,5,7]);return{stages:[{prompt:`Spiele <b>${chName(r,'dom7')}</b> (Dur-Dreiklang plus kleine Septime), Grundstellung`,need:4,ok:p=>samePcs(p,r,'dom7')&&p[0]%12===r,answer:tonesTxt(chNotes(r,'dom7')),sol:chNotes(r,'dom7')}]}},n:6,onDone:blRefresh}));
+}
+
+/* 2 Wechsel und Umkehrungen */
+function blSt2(m,redraw){
+  m.append(html(`<div class="card"><h3>Grundstellung und Umkehrungen</h3>
+   <p>In der <b>Grundstellung</b> liegt der <b>Grundton ganz unten</b> (C-Dur: c1 – e1 – g1). Bei einer <b>Umkehrung</b> hat der Akkord dieselben Töne, aber der unterste Ton wandert eine Oktave nach oben:</p>
+   <ul style="margin:0 0 8px;padding-left:20px"><li><b>1. Umkehrung:</b> Der Grundton wandert nach oben (C-Dur: e1 – g1 – c2).</li><li><b>2. Umkehrung:</b> Auch der 2. Ton wandert nach oben (C-Dur: g1 – c2 – e2).</li></ul>
+   <p style="margin:0"><b>Warum?</b> Im Blues wechselst du ständig zwischen C, F und G. Mit der <b>schnellsten Umkehrung</b> springt deine Hand nicht, sie bewegt sich nur ein wenig. Merke: <b>Töne, die in beiden Akkorden vorkommen, bleiben einfach liegen.</b></p></div>`));
+  const lab=html(`<div class="card"><h3>Ausprobieren</h3><div class="small muted">Akkord</div><div class="chips lc"></div><div class="small muted">Lage</div><div class="chips li"></div><div class="lk"></div><div class="small ld" style="margin:8px 0"></div><div class="row"><button class="btn" data-a="h">▶ Akkord hören</button><button class="btn sec" data-a="a">▶ nacheinander</button></div></div>`);
+  let ch='C',inv=0;
+  const dr=()=>{$('.lc',lab).innerHTML=BLCH.map(c=>`<span class="pill ${c===ch?'on':''}" data-c="${c}">${c}</span>`).join('');
+    $('.li',lab).innerHTML=[0,1,2].map(k=>`<span class="pill ${k===inv?'on':''}" data-i="${k}">${invTxt(k)}</span>`).join('');
+    const n=blLage(BLR[ch],inv),kb=keyboard({},Math.min(...n)-3,Math.max(...n)+3),mp={};n.forEach((x,i)=>mp[x]=AKCOL[i]);kb.paint(mp);$('.lk',lab).innerHTML='';$('.lk',lab).append(kb.el);
+    $('.ld',lab).innerHTML=`<b>${ch}-Dur, ${invTxt(inv)}</b>: von unten nach oben <b>${tonesTxt(n)}</b>`};
+  lab.onclick=e=>{const x=e.target.closest('[data-c],[data-i]'),a=e.target.dataset.a;
+    if(x){if(x.dataset.c)ch=x.dataset.c;if(x.dataset.i!=null)inv=+x.dataset.i;dr();return}
+    if(a){Eng.ensure();const t=Eng.ctx.currentTime+.05;blLage(BLR[ch],inv).forEach((n,i)=>Eng.tone(t+(a==='a'?i*.5:0),n,1.4,.6))}};
+  dr();m.append(lab);
+  const rows=[];BLCH.forEach(a=>BLCH.forEach(b=>{if(a===b)return;const prev=BLV.grund[a],best=blBest(prev,BLR[b]),stay=best.n.filter(x=>prev.includes(x));
+    rows.push(`<tr><td><b>${a} → ${b}</b></td><td>${invTxt(best.inv)}</td><td>${tonesTxt(best.n)}</td><td>${stay.length?tonesTxt(stay)+' bleibt':'–'}</td><td>${best.d}</td></tr>`)}));
+  m.append(html(`<div class="card"><h3>Die schnellste Umkehrung bei jedem Wechsel</h3><p class="small muted" style="margin:0 0 6px">Du startest immer mit dem ersten Akkord in Grundstellung. Die Tabelle zeigt, welche Lage des zweiten Akkords am nächsten liegt. «Bewegung» zählt, um wie viele Tasten sich deine Finger zusammen verschieben.</p>
+   <table class="t"><tr><th>Wechsel</th><th>schnellste Lage</th><th>Töne</th><th>Gemeinsamer Ton</th><th>Bewegung</th></tr>${rows.join('')}</table>
+   <p class="small muted" style="margin:10px 0 0">Zum Vergleich: In Grundstellung springt die Hand bei C → F um 15 Tasten, mit der schnellsten Umkehrung nur um 3.</p></div>`));
+  m.append(html('<h3 style="margin:18px 4px 6px">Übungen</h3>'));
+  m.append(chordQuiz({id:'bl_q2',title:'Übung 3: Umkehrungen von C, F, G',desc:'Grundstellung, 1. oder 2. Umkehrung: Auf den untersten Ton kommt es an.',gen:()=>({stages:[stChord(rnd([0,5,7]),'dur',rnd([0,1,2]))]}),n:6,onDone:blRefresh}));
+  const pairs=[];BLCH.forEach(a=>BLCH.forEach(b=>{if(a!==b)pairs.push([[BLR[a],'dur'],[BLR[b],'dur']])}));
+  m.append(chordQuiz({id:'bl_q3',title:'Übung 4: Wechsel – nahe beieinander',desc:'Zwei Akkorde nacheinander. Beim zweiten gilt: möglichst wenig bewegen.',gen:()=>{const [a,b]=rnd(pairs);
+    return{stages:[{prompt:`Spiele <b>${chFull(a[0],a[1])}</b> (beliebige Lage)`,need:3,ok:p=>samePcs(p,a[0],a[1]),answer:tonesTxt(chNotes(a[0],a[1])),sol:chNotes(a[0],a[1])},
+     {prompt:`Jetzt <b>${chFull(b[0],b[1])}</b>: Wähle die Lage so, dass deine Hand <b>möglichst wenig wandert</b>`,need:3,
+      ok:(p,prev)=>!samePcs(p,b[0],b[1])?false:(p.reduce((s,x,i)=>s+Math.abs(x-prev[i]),0)<=minMove(prev,b[0],b[1])?true:'Das geht noch näher zusammen.'),
+      answer:'der Akkord mit der kleinsten Bewegung (meist eine Umkehrung)'}]}},n:6,onDone:blRefresh}));
+}
+
+/* 3 Die 12 Takte */
+function blSt3(m,redraw){
+  m.append(html(`<div class="card"><h3>Der 12-Takte-Blues</h3>
+   <p>Fast jeder Blues folgt demselben Schema: <b>12 Takte</b>, in drei Zeilen zu je 4 Takten. Dann beginnt es wieder von vorne. Jeder Takt hat 4 Schläge.</p>
+   <table class="t" style="text-align:center"><tr><th></th><th>Takt 1</th><th>Takt 2</th><th>Takt 3</th><th>Takt 4</th></tr>
+   ${[0,1,2].map(r=>`<tr><td><b>Zeile ${r+1}</b></td>${BLFORM.grund.slice(r*4,r*4+4).map(c=>`<td><b style="color:${BLCOL[c]};font-size:20px">${c}</b><div class="small muted">${BLROM[c]}</div></td>`).join('')}</tr>`).join('')}</table>
+   <ul style="margin:10px 0 0;padding-left:20px"><li><b>Zeile 1:</b> 4 Takte C. Du bist «zuhause».</li><li><b>Zeile 2:</b> 2 Takte F, dann wieder 2 Takte C.</li><li><b>Zeile 3:</b> G (Spannung), F, dann zurück zu C. Danach fängt der Blues von vorne an.</li></ul></div>`));
+  m.append(html(`<div class="card"><h3>Zwei beliebte Abwandlungen</h3><ul style="margin:0;padding-left:20px"><li><b>Quick Change:</b> Schon in Takt 2 kommt das F («schneller Wechsel»).</li><li><b>Turnaround:</b> Im letzten Takt (12) spielst du G statt C. Das führt wie ein «Umkehrschwung» zurück an den Anfang.</li></ul></div>`));
+  m.append(html('<h3 style="margin:16px 4px 6px">▶ Das Schema hören und mitspielen</h3>'));
+  m.append(blPlayer({rhythm:'whole',fixRh:true,bpm:60,max:120}).el);
+  m.append(html('<h3 style="margin:18px 4px 6px">Übungen</h3>'));
+  m.append(mcQuiz({id:'bl_t2',title:'Übung 5: Fragen zu den 12 Takten',desc:'Welcher Akkord kommt wo?',n:6,onDone:blRefresh,gen:()=>{
+    const t=rnd(['akk','akk','akk','stu','fix','fix2']);
+    if(t==='akk'){const i=Math.floor(Math.random()*12),c=BLFORM.grund[i];return{q:`Welcher Akkord klingt im Schema in <b>Takt ${i+1}</b>?`,opts:['C','F','G'],ans:BLCH.indexOf(c),fixed:true,exp:`In Takt ${i+1} steht ${c} (${BLROM[c]}).`}}
+    if(t==='stu'){const i=rnd([4,8,0]),c=BLFORM.grund[i];return{q:`Welche Stufe hat der Akkord in <b>Takt ${i+1}</b>?`,opts:['I (C)','IV (F)','V (G)'],ans:BLCH.indexOf(c),fixed:true,exp:`Takt ${i+1}: ${c} = ${BLROM[c]}. Stufe.`}}
+    if(t==='fix')return rnd([
+      {q:'Wie viele Takte hat das Blues-Schema?',opts:['8','10','12','16'],ans:2,fixed:true,exp:'Es sind 12 Takte.'},
+      {q:'In welchem Takt kommt zum ersten Mal der Akkord <b>F</b>?',opts:['Takt 2','Takt 5','Takt 7','Takt 9'],ans:1,fixed:true,exp:'Die erste Zeile besteht aus vier Takten C. In Takt 5 kommt F.'},
+      {q:'Wo kommt im Schema zum ersten Mal <b>G</b>?',opts:['Takt 3','Takt 5','Takt 9','Takt 12'],ans:2,fixed:true,exp:'Die dritte Zeile beginnt in Takt 9 mit G.'}]);
+    return rnd([
+      {q:'Was ist ein <b>Quick Change</b>?',opts:['Schon in Takt 2 kommt F','Das Tempo wird schneller','Der Blues hat nur 8 Takte','Im letzten Takt kommt G'],ans:0,fixed:true,exp:'Quick Change = schneller Wechsel zu F in Takt 2.'},
+      {q:'Was ist ein <b>Turnaround</b>?',opts:['Schon in Takt 2 kommt F','Im letzten Takt kommt G und führt zurück zum Anfang','Man spielt rückwärts','Man wechselt die Tonart'],ans:1,fixed:true,exp:'Turnaround = Umkehrschwung: Takt 12 ist G statt C.'}])}}));
+  m.append(blGap({id:'bl_t3',title:'Übung 6: Lückenschema',desc:'Setze die fehlenden Akkorde ein. Du kennst das Schema, jetzt schreibst du es auf.',onDone:blRefresh}));
+}
+
+/* 4 Rhythmen (gerade) */
+const BLSEL=(id,t,d,pat,x)=>exDef(id,t,d,[0,1,2,3].map(i=>tk(Array.isArray(pat)?pat[i%pat.length]:pat,65)),Object.assign({bpm:70,per:4},x||{}));
+function blSt4(m,redraw){
+  m.append(html(`<div class="card"><h3>Rhythmen für die Begleitung</h3>
+   <p>Die Akkorde kannst du auf viele Arten spielen. Du übst jeden Rhythmus in vier Schritten: <b>① hören</b> (▶ Vorhören) · <b>② sprechen</b> mit der Rhythmussprache · <b>③ klatschen oder tippen</b> (Üben) · <b>④ testen</b>. Danach spielst du den Rhythmus <b>auf dem Akkord</b>: in Stufe 6 «Spielen» wählst du den Rhythmus und spielst ihn auf C, F und G.</p>
+   <p class="small muted" style="margin:0">Der Akkord wird nur dort gespielt, wo eine Note steht. Bei der Pause («paus») bleibt er still. In diesem Block sind die Rhythmen gerade, Swing kommt in Stufe 5.</p></div>`));
+  [BLSEL('bl_r1','1 · Ganze Noten','Ein Akkord pro Takt: «sta 2 3 4». Tippe nur auf die 1.','W'),
+   BLSEL('bl_r2','2 · Halbe Noten','Zwei Akkorde pro Takt: «sta-ah, sta-ah». Tippe auf 1 und 3.','HH'),
+   BLSEL('bl_r3','3 · Viertel','Ein Akkord auf jeden Schlag: «Schritt, Schritt, Schritt, Schritt».','SSSS'),
+   BLSEL('bl_r4','4 · Backbeat (Schlag 2 und 4)','«paus – Schritt – paus – Schritt»: Der Akkord kommt nur auf 2 und 4. Das ist der Herzschlag des Blues.','pSpS'),
+   BLSEL('bl_r5','5 · Stop-Time','Nur ein Akkord auf der 1, dann herrscht Stille: «Schritt, paus, paus, paus».','Sppp'),
+   BLSEL('bl_r6','6 · Gerade Achtel','«Laufe, Laufe, Laufe, Laufe»: acht Akkorde pro Takt. Bleib am Puls!','LLLL',{bpm:60}),
+   BLSEL('bl_r7','7 · Charleston (gerade)','Ein langer Akkord auf der 1, ein kurzer auf dem «und» nach 2, dann Pause: «Q-ah, Hopp, sta-ah».','Qoh',{bpm:60})
+  ].forEach((d,i)=>m.append(exerciseCard(d,null,blRefresh,i)));
+  m.append(html(`<div class="card"><b>Ziel:</b> Alle sieben Rhythmen mit mindestens ${CONFIG.pass} % getippt. Das Tempo (Standard 60–70 BPM) kannst du jederzeit langsamer stellen.</div>`));
+}
+
+/* 5 Swing */
+function blSt5(m,redraw){
+  const demo=html(`<div class="card"><h3>Was ist Swing?</h3>
+   <p>Zwei Achtel («Laufe») sind normalerweise <b>gleich lang</b>. Im <b>Swing</b> ist das erste Achtel <b>lang</b> und das zweite <b>kurz</b>, im Verhältnis 2 : 1. Du sprichst «<b>Laaufe</b>». Geschrieben bleibt es bei zwei gewöhnlichen Achteln, man <b>spielt</b> sie aber swing. So tönen Blues, Jazz und viele Songs «rollend» statt «hölzern».</p>
+   <svg viewBox="0 0 600 150" style="width:100%;max-width:560px;display:block;margin:6px 0;font-family:system-ui" font-size="15">
+    <text x="0" y="16" font-weight="700">gerade (1 : 1)</text><rect x="0" y="24" width="298" height="30" rx="6" fill="#a5b4fc"/><rect x="302" y="24" width="298" height="30" rx="6" fill="#c7d2fe"/><text x="149" y="45" text-anchor="middle">Lau-</text><text x="451" y="45" text-anchor="middle">fe</text>
+    <text x="0" y="86" font-weight="700">Swing (2 : 1)</text><rect x="0" y="94" width="398" height="30" rx="6" fill="#fcd34d"/><rect x="402" y="94" width="198" height="30" rx="6" fill="#fde68a"/><text x="199" y="115" text-anchor="middle">Laaau-</text><text x="501" y="115" text-anchor="middle">fe</text>
+    <text x="0" y="144" fill="#666" font-size="13">Ein Schlag (Viertel) wird jeweils in zwei Teile geteilt.</text></svg>
+   <div class="row"><button class="btn sec" data-a="g">▶ gerade hören</button><button class="btn" data-a="s">▶ Swing hören</button></div>
+   <p class="small muted" style="margin:10px 0 0">Tipp: Die zwei Achtel fühlen sich an wie <b>eine Triole</b> (3 Töne pro Schlag), bei der du den mittleren Ton weglässt.</p></div>`);
+  demo.onclick=e=>{const a=e.target.dataset.a;if(a)swingDemo(a==='s')};m.append(demo);
+  m.append(html(`<div class="card"><h3>Die Swing-Rhythmen</h3><p style="margin:0">Du übst wie vorher: hören, sprechen, klatschen, testen. Der Klick läuft gerade weiter. Nur die Achtel auf dem «und» werden nach hinten geschoben. In der Notation siehst du gewöhnliche Achtel.</p></div>`));
+  const SW={swing:1,bpm:72};
+  [BLSEL('bl_s1','1 · Shuffle (Swing-Achtel)','Durchgehend «Laaufe, Laaufe, Laaufe, Laaufe»: der klassische Blues-Groove.','LLLL',SW),
+   BLSEL('bl_s2','2 · Viertel und Swing-Paare','Viertel («Schritt») und Swing-Paare («Laaufe») im Wechsel.',['SLSL','LSLS','SSLL','LLSS'],SW),
+   BLSEL('bl_s3','3 · Swing mit Pausen','Achtung auf die Pausen: Der Puls läuft weiter.',['SLSp','LSLp','SLLS','LLSp'],SW),
+   BLSEL('bl_s4','4 · Offbeat (Swing)','«und – Hopp, und – Hopp»: Der Akkord kommt nur auf dem Zwischenschlag.','uouououo',SW),
+   BLSEL('bl_s5','5 · Charleston (Swing)','Langer Akkord auf der 1, kurzer auf dem geswingten «und» nach 2, dann Pause.','Qoh',SW),
+   BLSEL('bl_s6','6 · Backbeat (Swing)','Backbeat auf 2 und 4, dazu ein Swing-Paar am Ende.',['pSpL','pLpS','pSpL','pSpS'],SW)
+  ].forEach((d,i)=>m.append(exerciseCard(d,null,blRefresh,i)));
+  m.append(html('<h3 style="margin:18px 4px 6px">Hörübungen</h3>'));
+  m.append(mcQuiz({id:'bl_t4',title:'Übung 1: gerade oder Swing?',desc:'Du hörst Achtelpaare und entscheidest.',n:6,onDone:blRefresh,gen:()=>{const sw=Math.random()<.5,bpm=76+Math.floor(Math.random()*16);
+    return{q:'Sind die Achtel <b>gerade</b> oder im <b>Swing</b>?',opts:['gerade','Swing'],ans:sw?1:0,fixed:true,play:()=>swingDemo(sw,bpm),auto:true,exp:sw?'Lang – kurz (2 : 1): Das ist Swing.':'Beide Achtel sind gleich lang: gerade.'}}}));
+  m.append(mcQuiz({id:'bl_t5',title:'Übung 2: Welcher Rhythmus ist das?',desc:'Du hörst zwei Takte auf dem C-Akkord.',n:6,onDone:blRefresh,gen:()=>{
+    const ks=['quarter','back','stop','charl','half','shuf','offb','backs'],k=rnd(ks),bpm=76+Math.floor(Math.random()*12);
+    const wrong=ks.filter(x=>x!==k).sort(()=>Math.random()-.5).slice(0,3),opts=[k,...wrong].map(x=>BLRH[x].n).sort(()=>Math.random()-.5);
+    return{q:'Welcher <b>Rhythmus</b> ist das?',opts,ans:opts.indexOf(BLRH[k].n),fixed:true,play:()=>blHear(k,bpm),auto:true,exp:`Das war «${BLRH[k].n}».`}}}));
+}
+
+/* 6 Spielen */
+function blSt6(m,redraw){
+  const P=[
+   [1,'Ganze Noten',{st:{rh:'whole',form:'grund',bass:false,sev:false},bpm:60},'Ein Akkord pro Takt. Spiele C, F, G in der Reihenfolge der 12 Takte.'],
+   [2,'Viertel',{st:{rh:'quarter',form:'grund',bass:false,sev:false},bpm:70},'Ein Akkord auf jeden Schlag. Die Hand bleibt dabei ruhig: Nimm die schnellste Umkehrung.'],
+   [3,'Backbeat',{st:{rh:'back',form:'grund',bass:false,sev:false},bpm:80},'Der Akkord kommt nur auf 2 und 4.'],
+   [4,'Shuffle (Swing)',{st:{rh:'shuf',form:'grund',bass:false,sev:false},bpm:80},'Durchgehende Swing-Achtel auf dem Akkord. Das klingt schon wie ein richtiger Blues.'],
+   [5,'+ Bass links',{st:{rh:'shuf',form:'grund',bass:true,sev:false},bpm:80},'Zusätzlich spielt die linke Hand den Grundton (C, F oder G) auf 1 und 3. Nur für Fortgeschrittene.'],
+   [6,'+ Septime',{st:{rh:'shuf',form:'grund',bass:true,sev:true},bpm:80},'Blues-Sound: C7, F7 und G7 mit 4 Tönen. Option für Fortgeschrittene.']];
+  m.append(html(`<div class="card"><h3>Den 12-Takte-Blues spielen</h3><p>Du spielst die ganze 12-Takte-Schleife, bis du «Stopp» drückst. Wähle eine <b>Stufe</b> unten oder stelle alles selbst ein. Pro Hand kannst du wählen: <b>hören</b> (die App spielt sie) und <b>mitspielen</b> (die Tasten werden gezeigt, du spielst selbst).</p>
+   <p class="small muted" style="margin:0">Jeder Schüler spielt immer den <b>ganzen Akkord</b>. Fortgeschrittene nehmen zusätzlich den Bass links und die Septime.</p></div>`));
+  const info=html('<div class="card"><div class="small muted">Stufe</div><div class="chips ps"></div><div class="pd small" style="margin:4px 0 0"></div></div>');
+  let cur=0;
+  const pl=blPlayer({rhythm:'whole',bpm:60,max:140});
+  const draw=()=>{$('.ps',info).innerHTML=P.map((p,i)=>`<span class="pill ${i===cur?'on':''}" data-i="${i}">${p[0]} · ${p[1]}${akPass('bl_p'+p[0])?' ✓':''}</span>`).join('');$('.pd',info).textContent=P[cur][3]};
+  info.onclick=e=>{const p=e.target.closest('[data-i]');if(!p)return;cur=+p.dataset.i;const B=blS();pl.set({st:P[cur][2].st,bpm:P[cur][2].bpm});B.sev=P[cur][2].st.sev;B.bass=P[cur][2].st.bass;save();draw();updChk()};
+  m.append(info,pl.el);
+  const chk=html('<div></div>');m.append(chk);
+  const updChk=()=>{chk.innerHTML='';chk.append(blCheck('bl_p'+P[cur][0],'Stufe '+P[cur][0]+' ('+P[cur][1]+') kann ich spielen',()=>{draw();blRefresh()}))};
+  pl.set({st:P[0][2].st,bpm:P[0][2].bpm});draw();updChk();
+  m.append(html(`<div class="card"><b>Ziel:</b> Stufen 1 bis 4 geschafft. Die Stufen 5 und 6 sind freiwillig.</div>`));
+}
+
+/* 7 Songs */
+const BLSONGS=[
+ {id:'hound',yt:'Elvis Presley Hound Dog',title:'Hound Dog',lvl:1,bpm:88,form:'grund',rh:'back',
+  info:'Rock-\'n\'-Roll-Klassiker. Zuerst von Big Mama Thornton aufgenommen (1952), berühmt durch Elvis Presley (1956).',
+  rhy:'<b>Backbeat</b>: Der Akkord kommt nur auf Schlag 2 und 4, auf 1 und 3 ist Pause («paus – Schritt – paus – Schritt»). Gerade gespielt, kein Swing.'},
+ {id:'stlouis',yt:'Louis Armstrong St. Louis Blues',title:'St. Louis Blues',lvl:2,bpm:90,form:'grund',rh:'charls',
+  info:'Von W. C. Handy (1914), einer der ersten berühmten Blues-Songs. Das Original ist kein reiner 12-Takte-Blues: Es gibt zwei 12-Takte-Teile und dazwischen einen Moll-Teil im Tango-Rhythmus. Hier spielst du nur die <b>12 Takte</b>.',
+  rhy:'<b>Charleston mit Swing</b>: Ein langer Akkord auf der 1, ein kurzer auf dem geswingten «und» nach 2, danach Pause.'},
+ {id:'sweet',yt:'Robert Johnson Sweet Home Chicago',title:'Sweet Home Chicago',lvl:3,bpm:100,form:'ta',rh:'shuf',
+  info:'Blues-Standard, zuerst von Robert Johnson aufgenommen (1936).',
+  rhy:'<b>Shuffle</b>: Durchgehende Swing-Achtel («Laaufe, Laaufe, Laaufe, Laaufe»). Der letzte Takt ist ein <b>Turnaround</b> (G).'}];
+function blSt7(m,redraw){
+  if(BLS){const sg=BLSONGS.find(s=>s.id===BLS);blSong(m,sg,()=>{BLS=null;redraw()},redraw);return}
+  m.append(html(`<div class="card"><p class="muted" style="margin:0">Alle drei Songs haben dieselbe Begleitung: den 12-Takte-Blues mit C, F und G. Sie unterscheiden sich im <b>Rhythmus</b> und im <b>Tempo</b> (das Originaltempo). Du spielst nur die Begleitung, es gibt keine Melodie und keinen Text. Schwierig ist der Rhythmus, nicht die Akkorde.</p></div>`));
+  [1,2,3].forEach(l=>{m.append(html(`<h3 style="margin:16px 4px 6px">${AKL[l][0].toUpperCase()+AKL[l].slice(1)}</h3>`));
+    BLSONGS.filter(s=>s.lvl===l).forEach(sg=>{
+      const c=html(`<div class="card song"><div class="sn" style="font-size:30px;background:#eef0ff">${['','🟢','🟡','🔴'][sg.lvl]}</div><div style="flex:1;min-width:0"><h3>${sg.title}${akPass('bl_song_'+sg.id)?' ✓':''}</h3><div class="small muted">Tonart C-Dur (hier) · ${sg.bpm} BPM · ${BLRH[sg.rh].n}${sg.form==='ta'?' · mit Turnaround':''}</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
+      c.onclick=()=>{BLS=sg.id;redraw();window.scrollTo(0,0)};m.append(c)})})}
+function blSong(m,sg,back,redraw){
+  const bt=html('<div class="row hide-b"><button class="btn sec" data-a="b">‹ Alle Songs</button></div>');bt.onclick=e=>{if(e.target.dataset.a==='b')back()};m.append(bt);
+  m.append(html(`<div class="card"><h2>${sg.title}</h2><div class="muted">Tonart hier: C-Dur · Schwierigkeit: ${AKL[sg.lvl]} · Originaltempo ${sg.bpm} BPM</div>
+   <p style="margin:10px 0 0">${sg.info}</p>
+   <p style="margin:10px 0 0"><b>Akkordfolge</b> (12 Takte${sg.form==='ta'?', Takt 12 = G':''}): ${BLFORM[sg.form].map((c,i)=>`<span class="pill" style="min-height:30px;padding:2px 10px;color:${BLCOL[c]}">${i+1}: ${c}</span>`).join(' ')}</p>
+   <p style="margin:10px 0 0"><b>Rhythmus der rechten Hand:</b> ${sg.rhy}</p>${ytLink(sg.yt)}</div>`));
+  m.append(html('<h3 style="margin:16px 4px 6px">① Rhythmus üben</h3>'));
+  const sw=BLRH[sg.rh].sw;
+  m.append(exerciseCard(BLSEL('bl_song_'+sg.id+'_r','Rhythmus: '+BLRH[sg.rh].n,'Hören, sprechen, klatschen, testen. Dann kommt der Akkord dazu.',BLRH[sg.rh].tk,{bpm:sg.bpm,swing:sw?1:0}),null,blRefresh,0));
+  m.append(html('<h3 style="margin:16px 4px 6px">② Die Begleitung spielen</h3>'));
+  m.append(blPlayer({rhythm:sg.rh,form:sg.form,fixRh:true,fixForm:true,bpm:sg.bpm,max:140}).el);
+  m.append(blCheck('bl_song_'+sg.id,'Ich kann '+sg.title+' begleiten',()=>{blRefresh()}));
+}
+
+/* 8 Blues-Tonleiter */
+const BLSC=[60,63,65,66,67,70,72];
+function blSt8(m,redraw){
+  FLAT='full';
+  m.append(html(`<div class="card"><h3>Die Blues-Tonleiter in C</h3>
+   <p>Sie hat nur <b>6 verschiedene Töne</b>: <b>c – es – f – fis – g – b – c</b>. Der Abstand (in Tasten) zwischen den Tönen: <b>+3, +2, +1, +1, +3, +2</b>. Das <b>fis</b> ist die typische <b>Blue Note</b>: Sie klingt «schräg» und gibt dem Blues seinen besonderen Charakter.</p>
+   <p class="small muted" style="margin:0">Das Schöne daran: Alle diese Töne passen über <b>alle drei Akkorde</b> (C, F und G). Du kannst nichts falsch spielen.</p></div>`));
+  const kb=keyboard({onKey:()=>{}},57,74),mp={};BLSC.forEach(n=>mp[n]=n===66?'#f59e0b':AKCOL[0]);mp[58]=AKCOL[0];mp[75]=AKCOL[0];kb.paint(mp);
+  const sc=renderScore({bars:{s0:{ch:[[0,'C-Blues']],v:[BLSC.map((p,i)=>({b:i*.5,d:.5,p}))]}},systems:[['s0']],flat:'full',bpb:4,voices:[{label:'Blues-Tonleiter',color:'#4F46E5'}],voiceLabel:true,colorNotes:true,events:()=>BLSC.map((p,i)=>({b:i*.5,d:.5,p})),words:false,per:1});
+  const c=html(`<div class="card"><div class="small muted" style="margin-bottom:4px">Noten (Blue Note = fis, orange auf dem Piano)</div><div class="sc"></div><div class="kk" style="margin-top:8px"></div><div class="row" style="margin-top:8px"><button class="btn sec" data-a="u">▶ aufwärts</button><button class="btn sec" data-a="d">▶ abwärts</button><button class="btn sec" data-a="b">▶ auf und ab</button></div></div>`);
+  $('.sc',c).append(sc.el);$('.kk',c).append(kb.el);
+  c.onclick=e=>{const a=e.target.dataset.a;if(!a)return;Eng.ensure();const t=Eng.ctx.currentTime+.05,up=BLSC,dn=BLSC.slice().reverse(),seq=a==='u'?up:a==='d'?dn:[...up,...dn.slice(1)];seq.forEach((n,i)=>Eng.tone(t+i*.4,n,.6,.8))};
+  m.append(c);
+  m.append(html('<h3 style="margin:18px 4px 6px">Übungen</h3>'));
+  m.append(echoQuiz({id:'bl_e1',title:'Übung 1: Echo',desc:'Du hörst 3 bis 4 Töne der Blues-Tonleiter und spielst sie nach.',n:6,onDone:blRefresh,gen:()=>{const len=rnd([3,3,4]),r=[];let last=-1;while(r.length<len){const i=Math.floor(Math.random()*BLSC.length);if(i!==last){r.push(BLSC[i]);last=i}}return r}}));
+  m.append(mcQuiz({id:'bl_t6',title:'Übung 2: Fragen zur Tonleiter',desc:'Töne und Blue Note.',n:5,onDone:blRefresh,bank:[
+    {q:'Welcher Ton ist die typische <b>Blue Note</b> der C-Blues-Tonleiter?',opts:['fis','f','g','e'],ans:0,exp:'Das fis zwischen f und g klingt «schräg» und ist typisch für den Blues.'},
+    {q:'Wie viele verschiedene Töne hat die Blues-Tonleiter?',opts:['5','6','7','8'],ans:1,exp:'c – es – f – fis – g – b: sechs Töne, dann folgt wieder das c.'},
+    {q:'Welche Töne sind in der C-Blues-Tonleiter <b>schwarze Tasten</b>?',opts:['es, fis, b','es, f, g','fis, g, h','nur fis'],ans:0,exp:'es, fis und b sind schwarze Tasten.'},
+    {q:'Über welchen Akkorden darfst du die Blues-Tonleiter spielen?',opts:['Nur über C','Über C, F und G','Nur über G','Über keinen'],ans:1,exp:'Die Töne passen über alle drei Blues-Akkorde.'},
+    {q:'Mit welchem Ton beginnt die C-Blues-Tonleiter?',opts:['c','es','g','fis'],ans:0,exp:'Sie beginnt auf dem Grundton c.'},
+    {q:'Welcher Abstand folgt auf das <b>c</b> in der Tonleiter (zum es)?',opts:['+1 Taste','+2 Tasten','+3 Tasten','+4 Tasten'],ans:2,exp:'c → es sind 3 Tasten (Halbtonschritte).'}]}));
+}
+
+/* 9 Improvisieren */
+const BLPHR=[[60,63,65],[67,66,65,63],[70,67,65],[63,65,66,67],[72,70,67],[60,63,67,70],[67,70,72,70],[65,66,67]];
+function blSt9(m,redraw){
+  FLAT='full';
+  m.append(html(`<div class="card"><h3>Improvisieren heisst: frei spielen</h3>
+   <p>Beim Blues darfst du <b>erfinden</b>. Die Begleitung läuft, und du spielst dazu mit der <b>rechten Hand</b> (nur einzelne Töne) Töne der Blues-Tonleiter: <b>c – es – f – fis – g – b</b>. Alle passen über C, F und G.</p>
+   <p class="small muted" style="margin:0">Tipps: Weniger ist mehr. Mach Pausen. Wiederhole eine Idee. Spiele am Ende einer Zeile gern den Grundton c.</p></div>`));
+  m.append(html('<h3 style="margin:16px 4px 6px">Schritt 1: Zwei Töne</h3>'));
+  m.append(html(`<div class="card"><p style="margin:0">Spiele nur <b>es</b> und <b>g</b> (oder <b>g</b> und <b>b</b>). Erfinde Rhythmen dazu: lang, kurz, Pause, wiederholen. Mehr brauchst du nicht, schon das klingt nach Blues. Starte unten bei Schritt 3 die Begleitung und spiele dazu.</p></div>`));
+  m.append(blCheck('bl_i1','Schritt 1: Ich habe mit zwei Tönen improvisiert',blRefresh));
+  m.append(html('<h3 style="margin:16px 4px 6px">Schritt 2: Frage und Antwort</h3>'));
+  const qa=html(`<div class="card"><p>Die App spielt dir eine kurze «Frage» vor. Du antwortest mit einer eigenen Tonfolge (ähnlich oder anders), wie in einem Gespräch.</p><div class="row"><button class="btn" data-a="q">▶ Frage anhören</button><button class="btn sec" data-a="n">Andere Frage</button></div><div class="small muted ph" style="margin:8px 0 0"></div></div>`);
+  let ph=BLPHR[0];const showPh=()=>{$('.ph',qa).textContent='Die Frage hat '+ph.length+' Töne.'};showPh();
+  qa.onclick=e=>{const a=e.target.dataset.a;if(!a)return;if(a==='n'){ph=rnd(BLPHR);showPh()}Eng.ensure();const t=Eng.ctx.currentTime+.05;ph.forEach((n,i)=>Eng.tone(t+i*.45,n,.6,.8))};
+  m.append(qa);
+  m.append(blCheck('bl_i2','Schritt 2: Ich habe auf eine Frage geantwortet',blRefresh));
+  m.append(html('<h3 style="margin:16px 4px 6px">Schritt 3: Frei über 12 Takte</h3>'));
+  m.append(html(`<div class="card"><p style="margin:0">Die Begleitung (Akkorde und Bass) läuft als 12-Takte-Blues. Orange auf dem Piano ist die Blue Note (fis). Spiele frei dazu. Wähle Rhythmus und Tempo selbst.</p></div>`));
+  m.append(blPlayer({rhythm:'shuf',bass:true,bpm:80,improv:true,max:140}).el);
+  m.append(blCheck('bl_i3','Schritt 3: Ich habe über die 12 Takte improvisiert',blRefresh));
 }
 
 let CUR=null,view='home';
@@ -1312,7 +1743,7 @@ function go(v,sid){Eng.stop();document.body.classList.remove('beamer');$('#bx')?
 function render(){
   FLAT=false;
   const m=$('#main');m.innerHTML='';const bk=$('#back');bk.style.display=view==='home'?'none':'';$('#prB').style.display=view==='home'?'none':'';
-  bk.textContent=typeof view==='number'?'‹ '+CUR.title:(view==='akk'&&AKS)?'‹ Alle Lieder':'‹ Übersicht';
+  bk.textContent=typeof view==='number'?'‹ '+CUR.title:(view==='akk'&&AKS)?'‹ Alle Lieder':(view==='blues'&&BLT===7&&BLS)?'‹ Alle Songs':'‹ Übersicht';
   if(view==='home'){$('#ttl').textContent='Piano Levels';
     m.append(html(`<div class="card"><h2>Schritt für Schritt Klavier lernen</h2><p class="muted" style="margin:0">Übe zuerst Puls und Rhythmus. Wähle dann ein Lied: Jedes Lied führt über seine Rhythmus-Bausteine bis zur gemeinsamen Akkordbegleitung.</p></div>`));
     m.append(html('<details class="card fold"><summary><h3>So funktioniert Piano Levels</h3></summary><p class="small" style="margin:0 0 .4rem">Du lernst Schritt für Schritt, ein Lied der Klasse zu spielen. Jedes Lied hat vier Level, die aufeinander aufbauen (bei Liedern mit Melodie kommt ein fünftes dazu):</p><ol class="small" style="margin:0 0 .5rem;padding-left:1.2rem"><li><b>Bausteine &amp; Rhythmus:</b> Du übst den Rhythmus des Lieds mit der <b>Rhythmussprache</b> (zum Beispiel «Schritt», «sta-ah», «Laufe») und tippst ihn im Takt mit. Das Level schliesst die App selbst ab.</li><li><b>Ein Ton:</b> Du spielst den Rhythmus auf einem einzigen Ton auf dem Piano.</li><li><b>Akkordtöne:</b> Die Klasse spielt in drei Gruppen den gleichen Rhythmus, jede Gruppe auf ihren eigenen Tönen.</li><li><b>Zusammen:</b> Alle Stimmen zusammen ergeben die Akkorde. Danach wird dazu gesungen.</li><li><b>Melodie</b> (nur bei Liedern mit Melodie): Du spielst die gesungene Melodie, die Begleitung läuft dazu.</li></ol><p class="small" style="margin:0 0 .4rem">Ab Level 2 bestätigt deine Lehrperson, dass du bereit bist, mit einem <b>Freigabewort</b>. Dann ist das nächste Level offen. Das Tempo startet beim Originaltempo des Lieds, du kannst es langsamer stellen. Die Metronom-Klicks helfen dir, den Puls zu halten. Alles wird auf deinem Gerät gespeichert. Die App lässt sich installieren und funktioniert auch ohne Internet.</p></details>'));
@@ -1324,12 +1755,15 @@ function render(){
       c.onclick=()=>go('song',s.id);m.append(c)});
     const ak=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">🎸</div><div style="flex:1;min-width:0"><h3>Akkordprojekt</h3><div class="small muted">Dreiklänge, Umkehrungen und Lieder begleiten</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
     ak.onclick=()=>go('akk');m.append(ak);
+    const bq=html(`<div class="card song"><div class="sn" style="font-size:32px;background:#eef0ff">🎷</div><div style="flex:1;min-width:0"><h3>Blues-Projekt</h3><div class="small muted">Blues-Akkorde, 12 Takte, Swing, Songs, Blues-Tonleiter und Improvisieren</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
+    bq.onclick=()=>go('blues');m.append(bq);
     const rh=html(`<div class="card lv"><div class="ic">🥁</div><div><h3>Puls und Rhythmus</h3><div class="small muted">Rhythmussprache, Notenwerte, Zufallsrhythmen (4/4 und 3/4)</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
     rh.onclick=()=>go('rhy');m.append(rh);
     const mp=html(`<div class="card lv"><div class="ic">🎹</div><div><h3>Mini-Piano kennenlernen</h3><div class="small muted">Bedienfeld, Tasten und Tastennamen</div></div><div class="st"><span style="color:var(--ind)">Öffnen ›</span></div></div>`);
     mp.onclick=()=>go('mini');m.append(mp)}
   else if(view==='mini'){$('#ttl').textContent='Mini-Piano';miniPiano(m)}
   else if(view==='akk'){$('#ttl').textContent='Akkordprojekt';akkordProjekt(m)}
+  else if(view==='blues'){$('#ttl').textContent='Blues-Projekt';bluesProject(m)}
   else if(view==='rhy'){$('#ttl').textContent='Puls und Rhythmus';rhythmHub(m)}
   else if(view==='song'){$('#ttl').textContent=CUR.title;
     const p=progress(CUR);
@@ -1340,7 +1774,7 @@ function render(){
       c.onclick=()=>{if(un)go(l.n);else toast('Schliesse zuerst Level '+(l.n-1)+' ab.')};m.append(c)})}
   else{const l=LEVELS[view-1];$('#ttl').textContent=CUR.title+' · Level '+l.n;l.f(m)}
 }
-const backOne=()=>{if(view==='akk'&&AKS){Eng.stop();AKS=null;render();window.scrollTo(0,0)}else go(typeof view==='number'?'song':'home')};
+const backOne=()=>{if(view==='akk'&&AKS){Eng.stop();AKS=null;render();window.scrollTo(0,0)}else if(view==='blues'&&BLT===7&&BLS){Eng.stop();BLS=null;render();window.scrollTo(0,0)}else go(typeof view==='number'?'song':'home')};
 $('#back').onclick=backOne;
 $('#miniB').onclick=()=>go('mini');
 function printSheets(){
